@@ -39,7 +39,7 @@ jobs:
         run: |
           python -m pip install geo-optimizer-skill
           curl -fsSL -o siteone.deb https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-static_2.5.1-1_amd64.deb
-          echo "294add3b77a6373bfc8a860b21a6cc416dcaf6c52f70d2b09f240e0c3103832b7433ae081e9c271181  siteone.deb" | sha256sum -c -
+          echo "294add3b77f4b90c1a68c900cd2c18495f538b8212222b7433ae081e9c271181  siteone.deb" | sha256sum -c -
           sudo dpkg -i siteone.deb
 
       - name: Step 1 - SEO scan using SiteOne
