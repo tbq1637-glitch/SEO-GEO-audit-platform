@@ -35,6 +35,15 @@ jobs:
         with:
           python-version: '3.12'
 
+      
+      - name: STEP 1 - Website and Business Identification
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m pip install "openai>=2.0,<3.0" "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "pydantic>=2,<3"
+          python scripts/business_identification.py
+
+
       - name: Install SEO and GEO scanners
         run: |
           python -m pip install geo-optimizer-skill
