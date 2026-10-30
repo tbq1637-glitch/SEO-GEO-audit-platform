@@ -37,7 +37,6 @@ jobs:
 
       
       - name: STEP 1 - Website and Business Identification
-        if: ${{ false }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
