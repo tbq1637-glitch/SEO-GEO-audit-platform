@@ -37,6 +37,7 @@ jobs:
 
       
       - name: STEP 1 - Website and Business Identification
+        if: ${{ false }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -65,6 +66,8 @@ jobs:
             --output-json-file=reports/seo.json \
             --output-html-report=reports/seo.html \
             --output-text-file=reports/seo.txt \
+            --markdown-export-dir=reports/page_export \
+            --markdown-export-single-file=reports/siteone_page.md \
             > reports/siteone.log 2>&1
 
       - name: Step 2 - GEO scan using GEO Optimizer
