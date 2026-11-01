@@ -79,10 +79,10 @@ def main():
                         capture_output=True, text=True, timeout=100, check=False,
                     )
                     log_path.write_text(
-                        f"SiteOne exit code: {run.returncode}\\n"
-                        f"Markdown file exists: {md.exists()}\\n"
-                        f"STDOUT:\\n{run.stdout[-6000:]}\\n"
-                        f"STDERR:\\n{run.stderr[-6000:]}\\n",
+                        f"SiteOne exit code: {run.returncode}\n"
+                        f"Markdown file exists: {md.exists()}\n"
+                        f"STDOUT:\n{run.stdout[-6000:]}\n"
+                        f"STDERR:\n{run.stderr[-6000:]}\n",
                         encoding="utf-8",
                     )
                     row["siteone_exit_code"] = run.returncode
@@ -99,7 +99,7 @@ def main():
                 except (OSError, subprocess.TimeoutExpired) as exc:
                     row.update(status="capture_failed", reason=type(exc).__name__)
                     log_path.write_text(
-                        f"SiteOne failed: {type(exc).__name__}\\n",
+                        f"SiteOne failed: {type(exc).__name__}\n",
                         encoding="utf-8",
                     )
             records.append(row)
