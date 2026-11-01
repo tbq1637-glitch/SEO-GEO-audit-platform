@@ -152,6 +152,11 @@ jobs:
           python -m pip install "openai>=2,<3"
           python scripts/search_research.py
 
+      - name: STEP 3 - Capture competitor page evidence
+        if: ${{ inputs.search_mode == 'live_2' }}
+        run: |
+          python scripts/competitor_evidence.py
+
       - name: STEP 3 - Save Google SERP snapshot
         if: ${{ inputs.search_mode == 'live_2' && steps.serp_cache.outputs.cache-hit != 'true' && success() }}
         uses: actions/cache/save@v4
