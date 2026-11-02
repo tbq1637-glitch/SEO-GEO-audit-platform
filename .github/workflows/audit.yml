@@ -16,6 +16,11 @@ on:
         options:
           - landing_page
           - website
+      step4_deep_analysis:
+        description: "Run upstream SiteOne AI SEO + GEO perception/fix (uses OpenAI tokens)"
+        required: true
+        type: boolean
+        default: false
       search_mode:
         description: "STEP 2-3: off, plan (0 Google searches), or live_2 (max 2)"
         required: true
@@ -104,6 +109,28 @@ jobs:
       - name: Step 2 - GEO scan using GEO Optimizer
         run: |
           geo audit --url "$AUDIT_URL" --format json > reports/geo.json
+
+      - name: STEP 4 - Upstream SiteOne AI SEO (single page)
+        if: ${{ inputs.step4_deep_analysis }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          test -n "$OPENAI_API_KEY" || { echo "Missing OPENAI_API_KEY"; exit 1; }
+          mkdir -p reports/step4/siteone_ai_cache
+          siteone-crawler --url="$AUDIT_URL" --single-page \
+            --workers=1 --max-reqs-per-sec=1 \
+            --ai-provider=openai --ai-model=gpt-5-mini --ai-actions=seo \
+            --ai-max-pages=1 --ai-cache-dir=reports/step4/siteone_ai_cache \
+            --output-json-file=reports/step4/siteone_ai_seo.json \
+            --output-html-report=reports/step4/siteone_ai_seo.html \
+            > reports/step4/siteone_ai_seo.log 2>&1
+
+      - name: STEP 4 - Upstream GEO perception and fix preview
+        if: ${{ inputs.step4_deep_analysis }}
+        run: |
+          mkdir -p reports/step4
+          geo perception --url "$AUDIT_URL" > reports/step4/geo_perception.txt 2>&1
+          geo fix --url "$AUDIT_URL" > reports/step4/geo_fix_preview.txt 2>&1
 
       - name: STEP 2-3 - Offline safety tests (zero API requests)
         run: |
