@@ -56,6 +56,35 @@ jobs:
           for name in ("geo_help", "geo_citations_help", "geo_authority_help"):
               print(name, "captured", (p / (name+".txt")).stat().st_size, "bytes")
           PY
+      - name: STEP 4 upstream compatibility preflight (zero AI/API calls)
+        run: |
+          mkdir -p reports/step4_preflight
+          python -m pip install "geo-optimizer-skill"
+          siteone-crawler --help > reports/step4_preflight/siteone_help.txt 2>&1
+          geo perception --help > reports/step4_preflight/perception_help.txt 2>&1
+          geo fix --help > reports/step4_preflight/fix_help.txt 2>&1
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("reports/step4_preflight")
+          s = (root/"siteone_help.txt").read_text()
+          p = (root/"perception_help.txt").read_text()
+          f = (root/"fix_help.txt").read_text()
+          checks = {
+              "siteone_ai_provider": "--ai-provider" in s,
+              "siteone_ai_model": "--ai-model" in s,
+              "siteone_ai_actions": "--ai-actions" in s,
+              "siteone_ai_cache": "--ai-cache-dir" in s,
+              "siteone_ai_pages": "--ai-max-pages" in s,
+              "geo_perception_url": "--url" in p,
+              "geo_fix_url": "--url" in f,
+          }
+          (root/"STEP4_PREFLIGHT.txt").write_text(
+              "\\n".join(f"{k}: {'SUPPORTED' if v else 'NOT_CONFIRMED'}" for k,v in checks.items())+"\\n"
+          )
+          print((root/"STEP4_PREFLIGHT.txt").read_text())
+          if not all(checks.values()):
+              raise SystemExit("STEP 4 flags require correction before enabling paid analysis")
+          PY
       - name: Offline capture checks
         run: python -m pytest -q tests/test_competitor_evidence.py
       - name: Capture public competitor evidence with SiteOne
@@ -67,6 +96,7 @@ jobs:
           name: step3-open-source-competitor-evidence
           path: |
             reports/upstream_capabilities/
+            reports/step4_preflight/
             reports/competitor_evidence.json
             reports/COMPETITOR_EVIDENCE.md
             reports/competitor_*.md
