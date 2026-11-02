@@ -88,6 +88,24 @@ def verified_quote(quote, body):
     return bool(quote) and " ".join(quote.split()).casefold() in " ".join(body.split()).casefold()
 
 
+def write_report(review):
+    lines = ["# STEP 3 - AI Competitive Content Analysis", "",
+             "Evidence-based semantic comparison, not verified ranking causation.", "",
+             "## Industry-specific focus", ""]
+    lines += ["- " + item for item in review["industry_specific_evaluation_focus"]]
+    for f in review["findings"]:
+        lines += ["", "## " + f["query"], "",
+                  f"- Competitor: {f['competitor_url']} ({f['relevance']})",
+                  f"- Observed competitor information: {f['observed_competitor_information']}",
+                  f"- Competitor quote verified: {f['competitor_quote_verified']}",
+                  f"- Target information: {f['observed_target_information']}",
+                  f"- Evidence-based gap: {f['evidence_based_gap']}",
+                  f"- Potential search relevance: {f['potential_search_relevance']}",
+                  f"- Uncertainty: {f['uncertainty']}"]
+    lines += ["", "## Limitations", ""] + ["- " + x for x in review["limitations"]]
+    (OUT / "STEP3_AI_COMPETITIVE_ANALYSIS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main():
     payload = build_input()
     key = key_for(payload)
@@ -95,6 +113,7 @@ def main():
     if cache.exists():
         old = json.loads(cache.read_text(encoding="utf-8"))
         if old.get("evidence_hash") == key and old.get("version") == VERSION:
+            write_report(old["result"])
             print("STEP 3 semantic analysis cache hit; 0 new AI calls")
             return
     if not os.getenv("OPENAI_API_KEY"):
@@ -137,21 +156,6 @@ def main():
             finding["uncertainty"] += " | Target quotation not found in extracted text."
     cache.write_text(json.dumps({"version": VERSION, "model": MODEL,
         "evidence_hash": key, "result": review}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    lines = ["# STEP 3 - AI Competitive Content Analysis", "",
-             "Evidence-based semantic comparison, not verified ranking causation.", "",
-             "## Industry-specific focus", ""]
-    lines += ["- " + item for item in review["industry_specific_evaluation_focus"]]
-    for f in review["findings"]:
-        lines += ["", "## " + f["query"], "",
-                  f"- Competitor: {f['competitor_url']} ({f['relevance']})",
-                  f"- Observed competitor information: {f['observed_competitor_information']}",
-                  f"- Competitor quote verified: {f['competitor_quote_verified']}",
-                  f"- Target information: {f['observed_target_information']}",
-                  f"- Evidence-based gap: {f['evidence_based_gap']}",
-                  f"- Potential search relevance: {f['potential_search_relevance']}",
-                  f"- Uncertainty: {f['uncertainty']}"]
-    lines += ["", "## Limitations", ""] + ["- " + x for x in review["limitations"]]
-    (OUT / "STEP3_AI_COMPETITIVE_ANALYSIS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("STEP 3 AI semantic analysis complete; one OpenAI request; no new Google search")
 
 
