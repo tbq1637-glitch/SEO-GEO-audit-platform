@@ -156,6 +156,7 @@ def main():
             finding["uncertainty"] += " | Target quotation not found in extracted text."
     cache.write_text(json.dumps({"version": VERSION, "model": MODEL,
         "evidence_hash": key, "result": review}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_report(review)
     print("STEP 3 AI semantic analysis complete; one OpenAI request; no new Google search")
 
 
