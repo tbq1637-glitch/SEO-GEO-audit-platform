@@ -117,6 +117,10 @@ jobs:
         run: |
           test -n "$OPENAI_API_KEY" || { echo "Missing OPENAI_API_KEY"; exit 1; }
           mkdir -p reports/step4/siteone_ai_cache
+          siteone-crawler --help > reports/step4/siteone_ai_help.txt 2>&1
+          for flag in --ai-provider --ai-model --ai-actions --ai-max-pages --ai-cache-dir; do
+            grep -q -- "$flag" reports/step4/siteone_ai_help.txt || { echo "Unsupported SiteOne flag: $flag"; exit 1; }
+          done
           siteone-crawler --url="$AUDIT_URL" --single-page \
             --workers=1 --max-reqs-per-sec=1 \
             --ai-provider=openai --ai-model=gpt-5-mini --ai-actions=seo \
@@ -129,6 +133,10 @@ jobs:
         if: ${{ inputs.step4_deep_analysis }}
         run: |
           mkdir -p reports/step4
+          geo perception --help > reports/step4/geo_perception_help.txt 2>&1
+          geo fix --help > reports/step4/geo_fix_help.txt 2>&1
+          grep -q -- "--url" reports/step4/geo_perception_help.txt || { echo "GEO perception URL flag unavailable"; exit 1; }
+          grep -q -- "--url" reports/step4/geo_fix_help.txt || { echo "GEO fix URL flag unavailable"; exit 1; }
           geo perception --url "$AUDIT_URL" > reports/step4/geo_perception.txt 2>&1
           geo fix --url "$AUDIT_URL" > reports/step4/geo_fix_preview.txt 2>&1
 
