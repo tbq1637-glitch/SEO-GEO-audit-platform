@@ -60,7 +60,7 @@ jobs:
         run: |
           mkdir -p reports/step4_preflight
           python -m pip install "geo-optimizer-skill"
-          siteone-crawler --help > reports/step4_preflight/siteone_help.txt 2>&1
+          siteone-crawler --help > reports/step4_preflight/siteone_help.txt 2>&1 || true
           set +e
           geo perception --help > reports/step4_preflight/perception_help.txt 2>&1
           echo "perception_exit=$?" > reports/step4_preflight/geo_help_exit_status.txt
