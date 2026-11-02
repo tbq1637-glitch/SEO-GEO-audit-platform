@@ -61,8 +61,14 @@ jobs:
           mkdir -p reports/step4_preflight
           python -m pip install "geo-optimizer-skill"
           siteone-crawler --help > reports/step4_preflight/siteone_help.txt 2>&1
-          geo perception --help > reports/step4_preflight/perception_help.txt 2>&1 || echo "geo perception help exited nonzero" > reports/step4_preflight/perception_help_status.txt
-          geo fix --help > reports/step4_preflight/fix_help.txt 2>&1 || echo "geo fix help exited nonzero" > reports/step4_preflight/fix_help_status.txt
+          set +e
+          geo perception --help > reports/step4_preflight/perception_help.txt 2>&1
+          echo "perception_exit=$?" > reports/step4_preflight/geo_help_exit_status.txt
+          geo fix --help > reports/step4_preflight/fix_help.txt 2>&1
+          echo "fix_exit=$?" >> reports/step4_preflight/geo_help_exit_status.txt
+          geo --help > reports/step4_preflight/geo_help.txt 2>&1
+          echo "geo_exit=$?" >> reports/step4_preflight/geo_help_exit_status.txt
+          set -e
           python - <<'PY'
           from pathlib import Path
           root = Path("reports/step4_preflight")
