@@ -1,0 +1,29 @@
+name: STEP 3 Capture Diagnostic (No Paid APIs)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install free-only capture dependencies
+        run: |
+          python -m pip install "requests>=2.31,<3" "beautifulsoup4>=4.12,<5"
+          curl -fsSL -o siteone.deb https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-static_2.5.1-1_amd64.deb
+          echo "294add3b77f4b90c1a68c900cd2c18495f538b8212222b7433ae081e9c271181  siteone.deb" | sha256sum -c -
+          sudo dpkg -i siteone.deb
+      - name: Diagnose existing competitor URLs without paid APIs
+        run: python scripts/capture_diagnostic.py
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step3-capture-diagnostic
+          path: reports/capture_diagnostic/
+          retention-days: 7
