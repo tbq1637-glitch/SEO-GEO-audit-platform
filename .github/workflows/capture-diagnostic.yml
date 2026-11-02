@@ -36,6 +36,26 @@ jobs:
           curl -fsSL -o siteone.deb https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-static_2.5.1-1_amd64.deb
           echo "294add3b77f4b90c1a68c900cd2c18495f538b8212222b7433ae081e9c271181  siteone.deb" | sha256sum -c -
           sudo dpkg -i siteone.deb
+      - name: Inspect installed upstream capabilities without API calls
+        run: |
+          mkdir -p reports/upstream_capabilities
+          python -m pip install "geo-optimizer-skill[mcp]"
+          siteone-crawler --version > reports/upstream_capabilities/siteone_version.txt 2>&1 || true
+          siteone-crawler --help > reports/upstream_capabilities/siteone_help.txt 2>&1 || true
+          geo --help > reports/upstream_capabilities/geo_help.txt 2>&1 || true
+          geo citations --help > reports/upstream_capabilities/geo_citations_help.txt 2>&1 || true
+          geo authority --help > reports/upstream_capabilities/geo_authority_help.txt 2>&1 || true
+          python -m pip show geo-optimizer-skill > reports/upstream_capabilities/geo_package.txt 2>&1
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("reports/upstream_capabilities")
+          help_text = (p / "siteone_help.txt").read_text(errors="replace")
+          for flag in ("--ai-provider", "--ai-model", "--ai-actions", "--ai-dry-run",
+                       "--ai-max-pages", "--ai-prompt"):
+              print(f"SiteOne {flag}: {'present' if flag in help_text else 'not confirmed'}")
+          for name in ("geo_help", "geo_citations_help", "geo_authority_help"):
+              print(name, "captured", (p / (name+".txt")).stat().st_size, "bytes")
+          PY
       - name: Offline capture checks
         run: python -m pytest -q tests/test_competitor_evidence.py
       - name: Capture public competitor evidence with SiteOne
@@ -46,6 +66,7 @@ jobs:
         with:
           name: step3-open-source-competitor-evidence
           path: |
+            reports/upstream_capabilities/
             reports/competitor_evidence.json
             reports/COMPETITOR_EVIDENCE.md
             reports/competitor_*.md
