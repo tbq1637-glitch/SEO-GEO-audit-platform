@@ -1,10 +1,10 @@
-name: STEP 3 Capture and AI Analysis
+name: STEP 3 Capture Evidence (Open Source)
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  diagnose:
+  capture:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -17,61 +17,35 @@ jobs:
         with:
           path: reports/google_serp.json
           key: v2-serp-snapshot-15175101bdc91e9dba4530476012ce97a25647308b737655c0a794145ba2230d
-      - name: Verify cached search evidence without calling an API
+      - name: Verify existing search evidence
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
           p = Path("reports/google_serp.json")
           if not p.is_file():
-              raise SystemExit("Cached Run 12 SERP snapshot unavailable. Stopping without paid API calls.")
+              raise SystemExit("Cached Google evidence unavailable. No API requests made.")
           data = json.loads(p.read_text(encoding="utf-8"))
           if data.get("batch_id") != "stage3-pilot-v1" or len(data.get("groups", [])) != 2:
-              raise SystemExit("Unexpected SERP evidence; stopping.")
-          print("Existing Google evidence restored. New Google/OpenAI API requests: 0.")
+              raise SystemExit("Unexpected cached snapshot. No API requests made.")
+          print("Verified existing Google evidence. No paid API requests.")
           PY
-      - name: Install free capture tools
+      - name: Install SiteOne and capture dependencies
         run: |
           python -m pip install "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "pytest>=8,<10"
           curl -fsSL -o siteone.deb https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-static_2.5.1-1_amd64.deb
           echo "294add3b77f4b90c1a68c900cd2c18495f538b8212222b7433ae081e9c271181  siteone.deb" | sha256sum -c -
           sudo dpkg -i siteone.deb
-      - name: Offline capture safety tests
+      - name: Offline capture checks
         run: python -m pytest -q tests/test_competitor_evidence.py
-      - name: Capture competitor content without paid APIs
+      - name: Capture public competitor evidence with SiteOne
         run: python scripts/competitor_evidence.py
-      - name: Review captured competitor content (no paid APIs)
-        run: python scripts/competitor_content_review.py
-      - name: Restore previous STEP 3 AI analysis
-        id: ai_cache
-        uses: actions/cache/restore@v4
-        with:
-          path: reports/step3_ai_analysis.json
-          key: step3-ai-review-${{ github.ref_name }}-${{ github.run_id }}
-          restore-keys: |
-            step3-ai-review-${{ github.ref_name }}-
-      - name: STEP 3 - AI semantic comparison
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python -m pip install "openai>=2,<3" "pydantic>=2,<3"
-          python scripts/ai_competitive_analysis.py
-      - name: Save AI analysis for future runs
-        if: ${{ success() && steps.ai_cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
-        with:
-          path: reports/step3_ai_analysis.json
-          key: step3-ai-review-${{ github.ref_name }}-${{ github.run_id }}
-      - name: Upload evidence and diagnostics
+      - name: Upload original page evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: step3-free-competitor-evidence
+          name: step3-open-source-competitor-evidence
           path: |
-            reports/step3_ai_analysis.json
-            reports/STEP3_AI_COMPETITIVE_ANALYSIS.md
-            reports/competitor_content_review.json
-            reports/COMPETITOR_CONTENT_REVIEW.md
             reports/competitor_evidence.json
             reports/COMPETITOR_EVIDENCE.md
             reports/competitor_*.md
