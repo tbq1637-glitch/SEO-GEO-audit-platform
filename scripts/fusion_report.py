@@ -13,9 +13,13 @@ def main():
     for name in INPUTS:
         p = ROOT / name
         if p.exists():
-            evidence[name] = p.read_text(encoding="utf-8", errors="replace")[:30000]
-    snapshot = json.loads(evidence["google_serp.json"])
-    competitors = json.loads(evidence["competitor_evidence.json"])
+            # Parse source JSON from the complete file before reducing model input.
+            if name.endswith(".json"):
+                evidence[name] = json.loads(p.read_text(encoding="utf-8"))
+            else:
+                evidence[name] = p.read_text(encoding="utf-8", errors="replace")[:30000]
+    snapshot = evidence["google_serp.json"]
+    competitors = evidence["competitor_evidence.json"]
     if len(snapshot.get("groups", [])) != 4:
         raise RuntimeError("Four Google result groups required for full audit")
     for row in competitors.get("pages", []):
