@@ -21,6 +21,11 @@ on:
         required: true
         type: boolean
         default: false
+      full_pilot:
+        description: "Integrated four-query landing-page audit"
+        required: true
+        type: boolean
+        default: false
       search_mode:
         description: "STEP 2-3: off, plan (0 Google searches), or live_2 (max 2)"
         required: true
@@ -187,8 +192,16 @@ jobs:
           python -m pip install "openai>=2,<3"
           python scripts/search_research.py
 
+      - name: Integrated plan and four searches
+        if: ${{ inputs.full_pilot }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          SEARCH_BATCH_ID: landing-pilot-v1
+        run: python scripts/auto_four_searches.py
+
       - name: STEP 3 - Capture competitor page evidence
-        if: ${{ inputs.search_mode == 'live_2' }}
+        if: ${{ inputs.search_mode == 'live_2' || inputs.full_pilot }}
         run: |
           python scripts/competitor_evidence.py
 
@@ -198,6 +211,12 @@ jobs:
         with:
           path: reports/google_serp.json
           key: v2-serp-snapshot-${{ steps.serp_cache_key.outputs.digest }}
+
+      - name: Integrated evidence-based fusion report
+        if: ${{ inputs.full_pilot && inputs.step4_deep_analysis }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python scripts/fusion_report.py
 
       - name: Step 3 - Create combined source-labelled report
         run: |
