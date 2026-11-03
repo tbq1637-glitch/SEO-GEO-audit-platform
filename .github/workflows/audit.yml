@@ -82,7 +82,6 @@ jobs:
           geo audit --url "$AUDIT_URL" --format json > reports/geo.json
 
       - name: STEP 4 - Upstream SiteOne AI SEO (single page)
-        if: ${{ inputs.step4_deep_analysis }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -101,7 +100,6 @@ jobs:
             > reports/step4/siteone_ai_seo.log 2>&1
 
       - name: STEP 4 - Upstream GEO perception and fix preview
-        if: ${{ inputs.step4_deep_analysis }}
         run: |
           mkdir -p reports/step4
           geo perception --help > reports/step4/geo_perception_help.txt 2>&1 || true
@@ -116,50 +114,7 @@ jobs:
           python -m pip install "pytest>=8,<10" "pydantic>=2,<3" "requests>=2.31,<3"
           python -m pytest -q tests/test_search_research.py tests/test_competitor_evidence.py
 
-      - name: STEP 3 - Compute SERP snapshot cache key
-        if: ${{ inputs.search_mode == 'live_2' }}
-        id: serp_cache_key
-        env:
-          SEARCH_TARGET: ${{ inputs.url }}
-          SEARCH_BATCH_ID: ${{ inputs.search_batch_id }}
-        run: |
-          python - <<'PY'
-          import hashlib, json, os
-          fields = {
-              "target": os.environ["SEARCH_TARGET"],
-              "batch": os.environ["SEARCH_BATCH_ID"],
-              "market": "au", "language": "en", "device": "desktop",
-          }
-          digest = hashlib.sha256(
-              json.dumps(fields, sort_keys=True).encode()
-          ).hexdigest()
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-              f.write("digest=" + digest + "\n")
-          PY
-
-      - name: STEP 3 - Restore Google SERP snapshot
-        if: ${{ inputs.search_mode == 'live_2' }}
-        id: serp_cache
-        uses: actions/cache/restore@v4
-        with:
-          path: reports/google_serp.json
-          key: v2-serp-snapshot-${{ steps.serp_cache_key.outputs.digest }}
-
-      - name: STEP 2-3 - Search research
-        if: ${{ inputs.search_mode != 'off' }}
-        env:
-          SEARCH_MODE: ${{ inputs.search_mode }}
-          GOOGLE_QUERY_1: ${{ inputs.google_query_1 }}
-          GOOGLE_QUERY_2: ${{ inputs.google_query_2 }}
-          SEARCH_BATCH_ID: ${{ inputs.search_batch_id }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
-        run: |
-          python -m pip install "openai>=2,<3"
-          python scripts/search_research.py
-
       - name: Integrated plan and four searches
-        if: ${{ inputs.full_pilot }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
@@ -167,25 +122,15 @@ jobs:
         run: python scripts/auto_four_searches.py
 
       - name: STEP 3 - Capture competitor page evidence
-        if: ${{ inputs.search_mode == 'live_2' || inputs.full_pilot }}
         run: |
           python scripts/competitor_evidence.py
 
-      - name: STEP 3 - Save Google SERP snapshot
-        if: ${{ inputs.search_mode == 'live_2' && steps.serp_cache.outputs.cache-hit != 'true' && success() }}
-        uses: actions/cache/save@v4
-        with:
-          path: reports/google_serp.json
-          key: v2-serp-snapshot-${{ steps.serp_cache_key.outputs.digest }}
-
       - name: Integrated evidence-based fusion report
-        if: ${{ inputs.full_pilot && inputs.step4_deep_analysis }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/fusion_report.py
 
       - name: Render human-readable integrated HTML
-        if: ${{ inputs.full_pilot && inputs.step4_deep_analysis }}
         run: |
           python -m pip install "Markdown>=3.6,<4" "beautifulsoup4>=4.12,<5"
           python scripts/render_combined_report.py
