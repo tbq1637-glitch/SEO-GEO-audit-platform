@@ -218,6 +218,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python scripts/fusion_report.py
 
+      - name: Render human-readable integrated HTML
+        if: ${{ inputs.full_pilot && inputs.step4_deep_analysis }}
+        run: |
+          python -m pip install "Markdown>=3.6,<4" "beautifulsoup4>=4.12,<5"
+          python scripts/render_combined_report.py
+
       - name: Step 3 - Create combined source-labelled report
         run: |
           python - <<'PY'
