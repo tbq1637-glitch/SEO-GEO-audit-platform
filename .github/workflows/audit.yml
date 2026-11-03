@@ -16,47 +16,13 @@ on:
         options:
           - landing_page
           - website
-      step4_deep_analysis:
-        description: "Run upstream SiteOne AI SEO + GEO perception/fix (uses OpenAI tokens)"
-        required: true
-        type: boolean
-        default: false
-      full_pilot:
-        description: "Integrated four-query landing-page audit"
-        required: true
-        type: boolean
-        default: false
-      search_mode:
-        description: "STEP 2-3: off, plan (0 Google searches), or live_2 (max 2)"
-        required: true
-        type: choice
-        default: "off"
-        options:
-          - "off"
-          - "plan"
-          - "live_2"
-      google_query_1:
-        description: "Approved Google query 1 - live_2 only"
-        required: false
-        type: string
-        default: ""
-      google_query_2:
-        description: "Approved Google query 2 - live_2 only"
-        required: false
-        type: string
-        default: ""
-      search_batch_id:
-        description: "Batch ID: keep unchanged for cache reuse"
-        required: false
-        type: string
-        default: "stage3-pilot-v1"
 
 permissions:
   contents: read
 
 # Serialize tests using the same batch ID to reduce accidental duplicate searches.
 concurrency:
-  group: v2-search-${{ github.ref }}-${{ inputs.search_batch_id }}
+  group: v2-search-${{ github.ref }}-${{ inputs.url }}
   cancel-in-progress: false
 
 jobs:
