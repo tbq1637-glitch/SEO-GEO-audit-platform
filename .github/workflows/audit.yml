@@ -114,12 +114,43 @@ jobs:
           python -m pip install "pytest>=8,<10" "pydantic>=2,<3" "requests>=2.31,<3"
           python -m pytest -q tests/test_search_research.py tests/test_competitor_evidence.py
 
+      - name: Compute research cache key from target evidence
+        id: research_cache_key
+        run: |
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          evidence = Path("reports/siteone_page.md").read_bytes()
+          key = hashlib.sha256(b"auto-four-v1|" + evidence).hexdigest()
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write("digest=" + key + "\n")
+          PY
+
+      - name: Restore prior four-query research
+        id: research_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            reports/search_intents.json
+            reports/google_serp.json
+          key: auto-four-research-${{ steps.research_cache_key.outputs.digest }}
+
       - name: Integrated plan and four searches
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
           SEARCH_BATCH_ID: landing-pilot-v1
         run: python scripts/auto_four_searches.py
+
+      - name: Save four-query research cache
+        if: ${{ steps.research_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            reports/search_intents.json
+            reports/google_serp.json
+          key: auto-four-research-${{ steps.research_cache_key.outputs.digest }}
 
       - name: STEP 3 - Capture competitor page evidence
         run: |
