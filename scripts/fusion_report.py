@@ -134,6 +134,26 @@ def main():
     if not competitor_text_keys:
         raise RuntimeError("No captured static or rendered competitor text")
 
+    visual_manifest = ROOT / "step4/visual/visual_manifest.json"
+    if visual_manifest.is_file():
+        visual = json.loads(visual_manifest.read_text(encoding="utf-8"))
+        evidence["visual_review_sampling"] = {
+            "policy": visual.get("policy"), "max_pages": visual.get("max_pages"),
+            "limitations": "Only screenshots examined by a vision-capable model are visual evidence; missing or failed reviews are untested."
+        }
+        for item in visual.get("pages", []):
+            details = item.get("visual", {})
+            label = item.get("id", "unknown")
+            evidence["visual_review_status_" + label] = {
+                "url": item.get("url"), "query": item.get("query"),
+                "status": details.get("status"), "reason": details.get("reason")
+            }
+            if details.get("status") == "analysed":
+                visual_file = ROOT / "step4/visual" / (label + "_visual_review.md")
+                if visual_file.is_file():
+                    evidence["visual_review_" + label] = visual_file.read_text(
+                        encoding="utf-8", errors="replace")[:5000]
+
     serialized = json.dumps(evidence, sort_keys=True, ensure_ascii=False)
     digest = hashlib.sha256(serialized.encode()).hexdigest()
     cached_file = ROOT / "fusion_cache.json"
@@ -152,6 +172,9 @@ def main():
                     "Keep static versus browser-rendered sources separate, and "
                     "inspect section structure including FAQ, tables, links, and metadata. "
                     "Do not mistake missing/excluded content for absence on the website. "
+                    "Incorporate only completed screenshot-based AI layout observations. "
+                    "Treat visual assessments as qualitative, not ranking causes; "
+                    "distinguish desktop from mobile and mark unreviewed sites unknown. "
                     "Deduplicate overlapping recommendations and cite evidence sources. "
                     "Identify unsupported upstream suggestions, unverified claims, "
                     "and missing business information without inventing facts. "
