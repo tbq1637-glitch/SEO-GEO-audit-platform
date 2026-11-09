@@ -29,8 +29,6 @@ def main():
                 path = ROOT / file_name
                 if path.is_file():
                     evidence[file_name] = path.read_text(encoding="utf-8")[:12000]
-    if not any(k.startswith("competitor_") for k in evidence):
-        raise RuntimeError("No captured competitor content")
     # Preserve extraction provenance and use rendered evidence when available.
     structure_manifest = ROOT / "step3_structure/manifest.json"
     if structure_manifest.is_file():
@@ -68,6 +66,16 @@ def main():
         if structure.get("target_preferred_for_analysis") and rendered_target.is_file():
             evidence["target_rendered_markdown"] = rendered_target.read_text(
                 encoding="utf-8", errors="replace")[:30000]
+
+    # Reject runs without real competitor text. The metadata file itself
+    # must never count as successful competitor capture.
+    competitor_text_keys = [
+        name for name in evidence
+        if name.startswith("competitor_")
+        and (name.endswith(".md") or name.endswith("_rendered_markdown"))
+    ]
+    if not competitor_text_keys:
+        raise RuntimeError("No captured static or rendered competitor text")
 
     serialized = json.dumps(evidence, sort_keys=True, ensure_ascii=False)
     digest = hashlib.sha256(serialized.encode()).hexdigest()
