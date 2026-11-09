@@ -51,6 +51,13 @@ def extract_page(url):
     if "text/html" not in r.headers.get("Content-Type", "").lower():
         raise ValueError("Target URL is not an HTML page")
 
+    # Keep a bounded original HTML snapshot for later structure validation.
+    evidence_dir = Path("reports")
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    (evidence_dir / "target_source.html").write_text(
+        r.text[:1_000_000], encoding="utf-8"
+    )
+
     soup = BeautifulSoup(r.text[:1_000_000], "html.parser")
 
     title = (
