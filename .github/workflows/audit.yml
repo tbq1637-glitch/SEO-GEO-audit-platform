@@ -164,6 +164,9 @@ jobs:
         if: ${{ steps.structure_audit.outputs.browser_needed == 'true' }}
         run: python scripts/structured_capture.py recover
 
+      - name: STEP 4 - GEO native access and website structure diagnostics
+        run: python scripts/geo_extended_diagnostics.py
+
       - name: Integrated evidence-based fusion report
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
