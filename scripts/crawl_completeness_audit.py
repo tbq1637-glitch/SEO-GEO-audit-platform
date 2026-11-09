@@ -96,7 +96,7 @@ def main():
         if rendered_path.is_file() else ""
     )
     rendered_characters = len(rendered_text.strip())
-    rendered_has_heading = bool(re.search(r"(?m)^#{1,6}\\s+\\S", rendered_text))
+    rendered_has_heading = bool(re.search(r"(?m)^#{1,6}\s+\S", rendered_text))
     browser_fallback_valid = (
         status == "200" and rendered_characters >= 400
         and rendered_has_heading and not blocked
