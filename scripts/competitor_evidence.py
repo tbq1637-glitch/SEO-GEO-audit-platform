@@ -122,7 +122,9 @@ def convert_html(html, index):
         log_path.write_text(type(exc).__name__ + "\n", encoding="utf-8")
         return "", -1, log_path.name
     finally:
-        html_path.unlink(missing_ok=True)
+        # Preserve bounded source HTML for structure and dynamic-content audit.
+        # It is already capped at MAX_HTML_BYTES by fetch_html().
+        pass
 
 
 def main():
@@ -167,9 +169,15 @@ def main():
                     visible = soup.get_text(" ", strip=True)
                     row["visible_text_characters"] = len(visible)
                     if len(visible) < 200:
-                        row.update(status="insufficient_html")
+                        raw_path = OUT / f"competitor_{attempts}_source.html"
+                        raw_path.write_text(html, encoding="utf-8")
+                        row.update(status="insufficient_html",
+                                   html_file=raw_path.name,
+                                   capture_stem=f"competitor_{attempts}")
                     else:
                         markdown, exit_code, log = convert_html(html, attempts)
+                        row["html_file"] = f"competitor_{attempts}_source.html"
+                        row["capture_stem"] = f"competitor_{attempts}"
                         row.update(conversion_exit_code=exit_code, log_file=log)
                         if exit_code == 0 and len(markdown.strip()) >= 200:
                             successes += 1
