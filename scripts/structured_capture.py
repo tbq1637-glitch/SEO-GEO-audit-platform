@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import shutil
 from pathlib import Path
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup, Tag
@@ -86,11 +87,11 @@ def pages():
     p = ROOT / "competitor_evidence.json"
     data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
     for row in data.get("pages", []):
-        if row.get("status") != "captured":
+        if row.get("status") not in ("captured", "insufficient_html", "conversion_failed"):
             continue
-        name = row.get("markdown_file", "")
-        if re.fullmatch(r"competitor_[0-9]+\.md", name):
-            yield row, name[:-3]
+        stem = row.get("capture_stem", "")
+        if re.fullmatch(r"competitor_[0-9]+", stem):
+            yield row, stem
 
 
 def assess():
@@ -103,18 +104,27 @@ def assess():
         extracted = structure(raw.read_text(encoding="utf-8", errors="replace"))
         evidence_file = EVIDENCE / (stem + "_structure.json")
         evidence_file.write_text(json.dumps(extracted, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        rec = {"stem": stem, "url": row["url"], "source": str(evidence_file),
-               "browser_needed": extracted["browser_recommended"],
-               "reason": extracted["browser_reason"], "status": "static_extracted"}
+        browser_needed = extracted["browser_recommended"] or row.get("status") != "captured"
+        rec = {"stem": stem, "url": row.get("final_url", row["url"]), "source": str(evidence_file),
+               "static_status": row["status"], "browser_needed": browser_needed,
+               "reason": extracted["browser_reason"] if extracted["browser_recommended"] else
+                         ("static_conversion_incomplete" if browser_needed else "static_content_available"),
+               "status": "static_extracted"}
         manifest["pages"].append(rec)
         manifest["browser_needed"] = manifest["browser_needed"] or rec["browser_needed"]
     # Target page: existing SiteOne content extraction remains the authority.
+    raw_target = ROOT / "target_source.html"
     target_source = ROOT / "siteone_page.md"
+    if raw_target.exists():
+        target_structure = structure(raw_target.read_text(encoding="utf-8", errors="replace"))
+        (EVIDENCE / "target_structure.json").write_text(
+            json.dumps(target_structure, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        manifest["target_browser_needed"] = target_structure["browser_recommended"]
+    else:
+        manifest["target_browser_needed"] = not target_source.exists()
     if target_source.exists() and len(target_source.read_text(encoding="utf-8", errors="replace").strip()) < 600:
         manifest["target_browser_needed"] = True
-        manifest["browser_needed"] = True
-    else:
-        manifest["target_browser_needed"] = False
+    manifest["browser_needed"] = manifest["browser_needed"] or manifest["target_browser_needed"]
     (EVIDENCE / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     output = os.getenv("GITHUB_OUTPUT")
     if output:
@@ -126,9 +136,14 @@ def assess():
 def recover():
     path = EVIDENCE / "manifest.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
-    chrome = os.getenv("CHROME_PATH", "")
-    if not chrome or not Path(chrome).is_file():
-        raise RuntimeError("Chrome setup is required for dynamic fallback")
+    chrome = os.getenv("CHROME_PATH", "") or next(
+        (shutil.which(name) for name in ("google-chrome", "chromium", "chromium-browser")
+         if shutil.which(name)), "")
+    if not chrome:
+        manifest["browser_unavailable"] = "No Chromium executable in runner"
+        path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        print("Dynamic recovery unavailable: no Chromium installed")
+        return
     candidates = [rec for rec in manifest["pages"] if rec.get("browser_needed")]
     if manifest.get("target_browser_needed"):
         candidates.append({"stem": "target", "url": os.environ["AUDIT_URL"]})
@@ -150,6 +165,13 @@ def recover():
             rec["browser_status"] = "captured" if p.returncode == 0 and len(text.strip()) >= 200 else "failed"
             rec["rendered_characters"] = len(text)
             rec["rendered_markdown"] = str(out) if rec["browser_status"] == "captured" else None
+            base_file = ROOT / (stem + ".md") if stem != "target" else ROOT / "siteone_page.md"
+            static_size = len(base_file.read_text(encoding="utf-8", errors="replace")) if base_file.exists() else 0
+            rec["static_markdown_characters"] = static_size
+            rec["content_gain_chars"] = len(text) - static_size if rec["browser_status"] == "captured" else None
+            rec["preferred_for_analysis"] = rec["rendered_markdown"] if rec["browser_status"] == "captured" and len(text) > static_size else str(base_file)
+            if stem == "target":
+                manifest["target_preferred_for_analysis"] = rec["preferred_for_analysis"]
         except (OSError, subprocess.TimeoutExpired) as exc:
             rec["browser_status"] = "failed"
             rec["browser_error"] = type(exc).__name__
