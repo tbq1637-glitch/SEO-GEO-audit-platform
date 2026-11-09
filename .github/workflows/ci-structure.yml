@@ -12,6 +12,7 @@ on:
       - 'scripts/business_identification.py'
       - 'scripts/fusion_report.py'
       - 'scripts/geo_extended_diagnostics.py'
+      - 'scripts/visual_evidence.py'
       - 'tests/**'
       - '.github/workflows/ci-structure.yml'
   workflow_dispatch:
@@ -29,8 +30,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install local parsing and test dependencies
-        run: python -m pip install "pytest>=8,<10" "beautifulsoup4>=4.12,<5" "requests>=2.31,<3" "pydantic>=2,<3" "openai>=2,<3"
+        run: python -m pip install "pytest>=8,<10" "beautifulsoup4>=4.12,<5" "requests>=2.31,<3" "pydantic>=2,<3" "openai>=2,<3" "Pillow>=10,<12"
       - name: Static syntax validation
         run: python -m compileall -q scripts tests
       - name: Offline functional tests
-        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_structured_capture.py tests/test_search_research.py
+        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py
