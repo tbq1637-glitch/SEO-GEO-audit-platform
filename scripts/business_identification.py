@@ -3,6 +3,8 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -58,6 +60,43 @@ def extract_page(url):
         r.text[:1_000_000], encoding="utf-8"
     )
 
+    # SiteOne browser fallback only for evidence that looks client-rendered.
+    # Use the rendered Markdown as an additional source, never silently replace HTML.
+    browser_note = "Not needed: static content appears readable"
+    rendered_excerpt = ""
+    from structured_capture import structure
+    initial = structure(r.text[:1_000_000])
+    if initial["browser_recommended"]:
+        browser_note = "Dynamic content suspected; SiteOne browser recovery attempted"
+        chrome = next((shutil.which(name) for name in
+                       ("google-chrome", "chromium", "chromium-browser")
+                       if shutil.which(name)), None)
+        if chrome:
+            rendered_dir = evidence_dir / "step3_structure"
+            rendered_dir.mkdir(parents=True, exist_ok=True)
+            rendered_file = rendered_dir / "target_rendered.md"
+            cmd = ["siteone-crawler", "--url=" + r.url,
+                   "--single-page", "--browser", "--browser-path=" + chrome,
+                   "--browser-wait=networkidle", "--browser-timeout=35",
+                   "--browser-workers=1", "--workers=1",
+                   "--markdown-export-single-file=" + str(rendered_file)]
+            try:
+                p = subprocess.run(cmd, capture_output=True, text=True,
+                                   timeout=110, check=False)
+                (rendered_dir / "target_preflight.log").write_text(
+                    "exit_code=" + str(p.returncode) + "\n"
+                    + p.stderr[-4000:], encoding="utf-8")
+                if p.returncode == 0 and rendered_file.is_file():
+                    rendered_excerpt = rendered_file.read_text(
+                        encoding="utf-8", errors="replace")[:30000]
+                    browser_note = "SiteOne rendered DOM Markdown captured"
+                else:
+                    browser_note = "SiteOne browser recovery failed; see log"
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                browser_note = "SiteOne browser unavailable: " + type(exc).__name__
+        else:
+            browser_note = "SiteOne browser unavailable: Chrome not found"
+
     soup = BeautifulSoup(r.text[:1_000_000], "html.parser")
 
     title = (
@@ -95,6 +134,8 @@ def extract_page(url):
         "visible_text": norm(
             main.get_text(" ", strip=True)
         )[:20000],
+        "browser_recovery_status": browser_note,
+        "rendered_markdown_excerpt": rendered_excerpt,
         "extraction_note": (
             "Static HTML excerpt only; "
             "JS-rendered content may be missing"
