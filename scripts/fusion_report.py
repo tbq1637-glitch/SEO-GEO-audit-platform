@@ -31,6 +31,44 @@ def main():
                     evidence[file_name] = path.read_text(encoding="utf-8")[:12000]
     if not any(k.startswith("competitor_") for k in evidence):
         raise RuntimeError("No captured competitor content")
+    # Preserve extraction provenance and use rendered evidence when available.
+    structure_manifest = ROOT / "step3_structure/manifest.json"
+    if structure_manifest.is_file():
+        structure = json.loads(structure_manifest.read_text(encoding="utf-8"))
+        evidence["structure_capture_manifest"] = structure
+        for rec in structure.get("pages", []):
+            stem = rec.get("stem", "")
+            if not stem.startswith("competitor_") or not stem[11:].isdigit():
+                continue
+            structure_path = ROOT / "step3_structure" / (stem + "_structure.json")
+            if structure_path.is_file():
+                details = json.loads(structure_path.read_text(encoding="utf-8"))
+                # Include headings, content relationships, tables and references
+                # across the entire page, rather than first-N-char body truncation.
+                evidence[stem + "_page_structure"] = {
+                    "title": details.get("title"),
+                    "meta": details.get("meta"),
+                    "schema_excerpts": details.get("schema_excerpts", []),
+                    "sections": details.get("sections", [])[:120],
+                    "section_count": details.get("section_count"),
+                }
+            rendered_file = ROOT / "step3_structure" / (stem + "_rendered.md")
+            if rec.get("browser_status") == "captured" and rendered_file.is_file():
+                evidence[stem + "_rendered_markdown"] = rendered_file.read_text(
+                    encoding="utf-8", errors="replace")[:18000]
+        target_path = ROOT / "step3_structure/target_structure.json"
+        if target_path.is_file():
+            details = json.loads(target_path.read_text(encoding="utf-8"))
+            evidence["target_page_structure"] = {
+                "title": details.get("title"),
+                "sections": details.get("sections", [])[:120],
+                "schema_excerpts": details.get("schema_excerpts", []),
+            }
+        rendered_target = ROOT / "step3_structure/target_rendered.md"
+        if structure.get("target_preferred_for_analysis") and rendered_target.is_file():
+            evidence["target_rendered_markdown"] = rendered_target.read_text(
+                encoding="utf-8", errors="replace")[:30000]
+
     serialized = json.dumps(evidence, sort_keys=True, ensure_ascii=False)
     digest = hashlib.sha256(serialized.encode()).hexdigest()
     cached_file = ROOT / "fusion_cache.json"
@@ -46,6 +84,9 @@ def main():
                     "Create an evidence-grounded English SEO and GEO optimization report. "
                     "Separate SEO, GEO, shared issues, and competitive comparisons. "
                     "Use the actual search queries and captured competitor pages. "
+                    "Keep static versus browser-rendered sources separate, and "
+                    "inspect section structure including FAQ, tables, links, and metadata. "
+                    "Do not mistake missing/excluded content for absence on the website. "
                     "Deduplicate overlapping recommendations and cite evidence sources. "
                     "Identify unsupported upstream suggestions, unverified claims, "
                     "and missing business information without inventing facts. "
