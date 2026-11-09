@@ -155,7 +155,16 @@ def recover():
     candidates = [rec for rec in manifest["pages"] if rec.get("browser_needed")]
     if manifest.get("target_browser_needed"):
         candidates.append({"stem": "target", "url": os.environ["AUDIT_URL"]})
+    # Revalidate URLs before handing them to a browser-capable crawler.
+    # Do not browser-fetch unsafe or non-public competitor hosts.
+    from competitor_evidence import eligible, public_dns
     for rec in candidates[:6]:
+        if rec["stem"] != "target":
+            ok, why = eligible(rec["url"])
+            if not ok or not public_dns(rec["url"]):
+                rec["browser_status"] = "skipped_unsafe_url"
+                rec["browser_error"] = why or "Non-public DNS resolution"
+                continue
         stem = rec["stem"]
         out = EVIDENCE / (stem + "_rendered.md")
         log = EVIDENCE / (stem + "_browser.log")
