@@ -40,19 +40,19 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: STEP 1 - Website and Business Identification
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          python -m pip install "openai>=2.0,<3.0" "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "pydantic>=2,<3"
-          python scripts/business_identification.py
-
       - name: Install SEO and GEO scanners
         run: |
           python -m pip install geo-optimizer-skill
           curl -fsSL -o siteone.deb https://github.com/janreges/siteone-crawler/releases/download/v2.5.1/siteone-crawler-static_2.5.1-1_amd64.deb
           echo "294add3b77f4b90c1a68c900cd2c18495f538b8212222b7433ae081e9c271181  siteone.deb" | sha256sum -c -
           sudo dpkg -i siteone.deb
+
+      - name: STEP 1 - Website and Business Identification
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python -m pip install "openai>=2.0,<3.0" "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" "pydantic>=2,<3"
+          python scripts/business_identification.py
 
       - name: Step 1 - SEO scan using SiteOne
         run: |
