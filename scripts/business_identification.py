@@ -79,7 +79,8 @@ def extract_page(url):
                    "--single-page", "--browser", "--browser-path=" + chrome,
                    "--browser-wait=networkidle", "--browser-timeout=35",
                    "--browser-workers=1", "--workers=1",
-                   "--markdown-export-single-file=" + str(rendered_file)]
+                   "--markdown-export-single-file=" + str(rendered_file),
+                   "--output-json-file=" + str(rendered_dir / "target_browser.json")]
             try:
                 p = subprocess.run(cmd, capture_output=True, text=True,
                                    timeout=110, check=False)
