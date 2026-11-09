@@ -89,7 +89,24 @@ def main():
     if not title or not h1:
         issues.append("Title or H1 needs verification.")
 
-    if status != "200" or not text or blocked:
+    # Browser-rendered Markdown can supplement a sparse static crawl.
+    rendered_path = OUT / "step3_structure/target_rendered.md"
+    rendered_text = (
+        rendered_path.read_text(encoding="utf-8", errors="replace")
+        if rendered_path.is_file() else ""
+    )
+    rendered_characters = len(rendered_text.strip())
+    rendered_has_heading = bool(re.search(r"(?m)^#{1,6}\\s+\\S", rendered_text))
+    browser_fallback_valid = (
+        status == "200" and rendered_characters >= 400
+        and rendered_has_heading and not blocked
+    )
+
+    if status != "200" or blocked:
+        verdict = "INCOMPLETE - DO NOT USE FOR AI"
+    elif browser_fallback_valid and (not text or len(text) < 400 or not title or not h1):
+        verdict = "CONTENT CAPTURED - BROWSER FALLBACK; STATIC SEO DATA INCOMPLETE"
+    elif not text:
         verdict = "INCOMPLETE - DO NOT USE FOR AI"
     elif len(text) < 400 or not title or not h1:
         verdict = "NEEDS REVIEW - DO NOT USE FOR AI YET"
@@ -102,7 +119,10 @@ def main():
         "url": URL,
         "http_status": status,
         "response_bytes": size,
-        "markdown_characters": len(text),
+        "markdown_characters": max(len(text), rendered_characters) if browser_fallback_valid else len(text),
+        "static_markdown_characters": len(text),
+        "browser_markdown_characters": rendered_characters,
+        "browser_fallback_valid": browser_fallback_valid,
         "title": title,
         "h1": h1,
         "challenge_suspected": blocked,
