@@ -8,6 +8,51 @@ INPUTS = ["business_profile.json", "search_intents.json", "google_serp.json",
           "step4/siteone_ai_seo.json", "step4/geo_perception.txt",
           "step4/geo_fix_preview.txt", "siteone_page.md"]
 
+def summarize_sections(sections, budget=16000):
+    """Keep headings, original block ownership and representative examples.
+
+    Across very large pages, distribute evidence through the document instead
+    of silently dropping everything after the first 12,000 characters.
+    """
+    result = []
+    n = len(sections)
+    if n > 80:
+        indices = sorted(set(
+            list(range(25)) + [int(i * (n - 1) / 54) for i in range(55)]
+        ))
+    else:
+        indices = list(range(n))
+    consumed = 0
+    for i in indices:
+        sec = sections[i]
+        heading = str(sec.get("heading", ""))[:220]
+        blocks = []
+        for block in sec.get("blocks", [])[:25]:
+            if block.get("type") == "table":
+                values = block.get("rows", [])[:12]
+                item = {"type": "table", "rows": [
+                    [str(cell)[:220] for cell in row[:12]] for row in values
+                ]}
+            else:
+                item = {"type": block.get("type"),
+                        "text": str(block.get("text", ""))[:500]}
+                if block.get("href"):
+                    item["href"] = str(block["href"])[:300]
+            blocks.append(item)
+        entry = {"section_index": i, "heading": heading,
+                 "level": sec.get("level"), "blocks": blocks}
+        size = len(json.dumps(entry, ensure_ascii=False))
+        if consumed + size > budget:
+            result.append({"truncated_due_to_input_budget": True,
+                           "total_sections": n})
+            break
+        result.append(entry)
+        consumed += size
+    if n > len(result) and not any("truncated_due_to_input_budget" in item for item in result):
+        result.append({"sampled_section_count": len(result), "total_sections": n})
+    return result
+
+
 def main():
     evidence = {}
     for name in INPUTS:
@@ -29,6 +74,18 @@ def main():
                 path = ROOT / file_name
                 if path.is_file():
                     evidence[file_name] = path.read_text(encoding="utf-8")[:12000]
+    # Independent upstream GEO checks: preserve their exact status, not a new score.
+    geo_manifest = ROOT / "step4/geo_extended_manifest.json"
+    if geo_manifest.is_file():
+        geo_data = json.loads(geo_manifest.read_text(encoding="utf-8"))
+        evidence["geo_extended_diagnostics"] = geo_data
+        for check_name, rec in geo_data.get("checks", {}).items():
+            if rec.get("status") == "completed":
+                p = ROOT / "step4" / (check_name + ".txt")
+                if p.is_file():
+                    evidence[check_name + "_output"] = p.read_text(
+                        encoding="utf-8", errors="replace")[:12000]
+
     # Preserve extraction provenance and use rendered evidence when available.
     structure_manifest = ROOT / "step3_structure/manifest.json"
     if structure_manifest.is_file():
@@ -47,7 +104,7 @@ def main():
                     "title": details.get("title"),
                     "meta": details.get("meta"),
                     "schema_excerpts": details.get("schema_excerpts", []),
-                    "sections": details.get("sections", [])[:120],
+                    "sections": summarize_sections(details.get("sections", [])),
                     "section_count": details.get("section_count"),
                 }
             rendered_file = ROOT / "step3_structure" / (stem + "_rendered.md")
