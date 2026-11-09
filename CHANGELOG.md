@@ -2,6 +2,26 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Selective screenshot evidence and visual AI analysis (development)
+
+### Added
+- SiteOne native browser-based desktop and mobile full-page screenshots, for **the target URL plus up to two captured comparison pages** (six screenshots maximum per run).
+- AI image review of the actual screenshots, explicitly considering first-screen clarity, hierarchy, mobile overflow, calls to action, and visibly supported usability observations.
+- A source-labelled visual evidence manifest, independent per-page screenshot analysis, and bounded image inputs; the report records image-model usage tokens where available.
+- Integrate completed visual observations into STEP 5 alongside original SiteOne/GEO scan evidence; incomplete screenshot/AI results remain `not_tested`, `failed` or `unavailable`.
+- Offline tests for sample count, query diversity, screenshot capture failure, and absence of model calls when there is no image.
+
+### Limits / design decisions
+- This is **representative-sample visual analysis**, not screenshot/vision analysis of all candidate pages. Competitor selection prefers different search queries; no unverified claim that every chosen site is a direct competitor.
+- The full-page image may be downscaled for vision input; original screenshot files are retained. Pixel analysis is qualitative and never presented as evidence of ranking causes.
+- A failure to obtain screenshots or an API exception cannot be counted as a successful layout audit.
+- Existing STEP 3 Google-search and competitor-sample counts remain unchanged.
+- No branch merges beyond the explicit `main` baseline synchronization; this new visual component remains on V2 until tested.
+
+### Validation status
+- Code and offline test cases committed; no confirmed passing GitHub Actions result or real SiteOne screenshot/model demonstration yet.
+- End-to-end acceptance requires checking archived desktop/mobile images, per-page reports and final fused report in one run.
+
 ## 2026-11-10 — Structural evidence and conditional rendering (development integration)
 
 ### Added
