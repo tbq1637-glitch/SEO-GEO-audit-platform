@@ -124,6 +124,14 @@ def assess():
         manifest["target_browser_needed"] = not target_source.exists()
     if target_source.exists() and len(target_source.read_text(encoding="utf-8", errors="replace").strip()) < 600:
         manifest["target_browser_needed"] = True
+    # A successful STEP 1 SiteOne preflight already rendered this target.
+    # Do not fetch it a second time merely because the original HTML was sparse.
+    prior_rendered = EVIDENCE / "target_rendered.md"
+    if prior_rendered.is_file() and len(prior_rendered.read_text(
+            encoding="utf-8", errors="replace").strip()) >= 400:
+        manifest["target_preferred_for_analysis"] = str(prior_rendered)
+        manifest["target_browser_reused"] = True
+        manifest["target_browser_needed"] = False
     manifest["browser_needed"] = manifest["browser_needed"] or manifest["target_browser_needed"]
     (EVIDENCE / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     output = os.getenv("GITHUB_OUTPUT")
