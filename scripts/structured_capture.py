@@ -217,16 +217,17 @@ def reconcile_rendered_captures(manifest):
             # Archive the rendered result under the same stable naming
             # convention expected by STEP 5's source-loader.
             dest = ROOT / target_name
-            if not dest.is_file() or not dest.read_text(
-                    encoding="utf-8", errors="replace").strip():
-                shutil.copyfile(source, dest)
+            # The static conversion was incomplete: always replace its
+            # short/empty Markdown with the validated rendered source.
+            shutil.copyfile(source, dest)
             recovered_sources[stem] = target_name
         row.update(
             status="captured",
             browser_recovered=True,
             markdown_file=recovered_sources[stem],
             source="SiteOne browser rendered DOM after static extraction failure",
-            extracted_characters=source.stat().st_size,
+            extracted_characters=len(source.read_text(
+                encoding="utf-8", errors="replace")),
         )
         counts[key] = counts.get(key, 0) + 1
 
@@ -248,6 +249,30 @@ def reconcile_rendered_captures(manifest):
     record["rendered_recovered_sources"] = recovered_sources
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8")
+    # Keep the human-readable source summary synchronized with the JSON used
+    # downstream. A browser recovery must not leave a stale 5x3 coverage table.
+    lines = ["# STEP 3 — Final Competitor Capture Coverage", "",
+             "This summary includes the conditional browser recovery stage.",
+             "Source: `competitor_evidence.json`; raw captures and render logs remain archived.",
+             "", "| Query | Captured | Target | Recovered by browser |",
+             "|---|---:|---:|---:|"]
+    for item in record.get("per_query", []):
+        lines.append(
+            f"| {item.get('id')} | {item.get('successes', 0)} "
+            f"| {quota} | {item.get('browser_recovered_in_quota', 0)} |")
+    lines.extend(["", f"Total query samples: {record.get('query_sample_count', 0)}.",
+                  f"Unique captured URLs: {record.get('unique_captured_urls', 0)}.",
+                  "Uncaptured or blocked pages remain unverified, not absent.", "",
+                  "| Query | Position | URL | Capture status |",
+                  "|---|---:|---|---|"])
+    for row in pages:
+        lines.append(
+            f"| {row.get('query_id', '')} | {row.get('position', '')} "
+            f"| {str(row.get('url', '')).replace('|', '%7C')} "
+            f"| {row.get('status', 'unknown')}"
+            f"{' (browser)' if row.get('browser_recovered') else ''} |")
+    (ROOT / "COMPETITOR_EVIDENCE.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8")
 
 
 def recover():
