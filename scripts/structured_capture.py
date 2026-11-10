@@ -86,11 +86,13 @@ def structure(html):
 def pages():
     p = ROOT / "competitor_evidence.json"
     data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    seen_stems = set()
     for row in data.get("pages", []):
         if row.get("status") not in ("captured", "insufficient_html", "conversion_failed"):
             continue
         stem = row.get("capture_stem", "")
-        if re.fullmatch(r"competitor_[0-9]+", stem):
+        if re.fullmatch(r"competitor_[0-9]+", stem) and stem not in seen_stems:
+            seen_stems.add(stem)
             yield row, stem
 
 
