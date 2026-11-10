@@ -75,10 +75,14 @@ def extract_page(url):
             rendered_dir = evidence_dir / "step3_structure"
             rendered_dir.mkdir(parents=True, exist_ok=True)
             rendered_file = rendered_dir / "target_rendered.md"
+            export_dir = rendered_dir / "target_export"
+            export_dir.mkdir(parents=True, exist_ok=True)
+            rendered_file.unlink(missing_ok=True)
             cmd = ["siteone-crawler", "--url=" + r.url,
                    "--single-page", "--browser", "--browser-path=" + chrome,
                    "--browser-wait=networkidle", "--browser-timeout=35",
                    "--browser-workers=1", "--workers=1",
+                   "--markdown-export-dir=" + str(export_dir),
                    "--markdown-export-single-file=" + str(rendered_file),
                    "--output-json-file=" + str(rendered_dir / "target_browser.json")]
             try:
@@ -87,12 +91,16 @@ def extract_page(url):
                 (rendered_dir / "target_preflight.log").write_text(
                     "exit_code=" + str(p.returncode) + "\n"
                     + p.stderr[-4000:], encoding="utf-8")
-                if p.returncode == 0 and rendered_file.is_file():
-                    rendered_excerpt = rendered_file.read_text(
-                        encoding="utf-8", errors="replace")[:30000]
+                from structured_capture import inspect_siteone_export
+                full_text, export_errors = inspect_siteone_export(
+                    rendered_file, rendered_dir / "target_browser.json",
+                    p.returncode)
+                if not export_errors and len(full_text) >= 400:
+                    rendered_excerpt = full_text[:30000]
                     browser_note = "SiteOne rendered DOM Markdown captured"
                 else:
-                    browser_note = "SiteOne browser recovery failed; see log"
+                    browser_note = "SiteOne browser recovery failed: " + (
+                        "; ".join(export_errors[:2]) or "insufficient content")
             except (OSError, subprocess.TimeoutExpired) as exc:
                 browser_note = "SiteOne browser unavailable: " + type(exc).__name__
         else:
