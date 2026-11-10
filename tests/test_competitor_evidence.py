@@ -68,3 +68,32 @@ def test_failed_competitors_do_not_consume_success_limit(tmp_path, monkeypatch):
     assert all(q["successes"] == 3 for q in data["per_query"])
     assert data["google_api_requests_by_this_step"] == 0
     assert data["openai_requests_by_this_step"] == 0
+
+
+
+def test_same_domain_different_urls_are_not_excluded(tmp_path, monkeypatch):
+    monkeypatch.setattr(m, "OUT", tmp_path)
+    urls = [f"https://learning.example.org/webinar/{x}" for x in (1, 2, 3)]
+    groups = [{"id": f"Q{i}", "query": f"question {i}",
+               "results": [{"url": url, "position": j}
+                           for j, url in enumerate(urls, 1)],
+               "error": None} for i in range(1, 6)]
+    (tmp_path / "google_serp.json").write_text(json.dumps({
+        "target_url": "https://target.example.org", "groups": groups
+    }))
+    calls = []
+    def fetch(url):
+        calls.append(url)
+        return "<html><body>" + ("Useful event details. " * 35) + "</body></html>", {
+            "http_status": 200
+        }
+    monkeypatch.setattr(m, "fetch_html", fetch)
+    monkeypatch.setattr(m, "convert_html",
+                        lambda html, index: ("Readable text " * 60, 0, "log.txt"))
+    m.main()
+    audit = json.loads((tmp_path / "competitor_evidence.json").read_text())
+    assert audit["query_sample_count"] == 15
+    assert audit["unique_captured_urls"] == 3
+    assert calls == urls
+    assert not any(p.get("status") == "duplicate_domain_in_query"
+                   for p in audit["pages"])
