@@ -223,7 +223,7 @@ def main():
         if rendered_path.is_file():
             rendered_text = rendered_path.read_text(
                 encoding="utf-8", errors="replace")
-            for candidate in re.findall(r"https://[^\\s<>\\)\\]\\\"']+", rendered_text):
+            for candidate in re.findall(r"https://[^\s<>)\]\"']+", rendered_text):
                 candidate = candidate.rstrip(".,;")
                 if is_video_host(candidate) and candidate not in rendered_links:
                     rendered_links.append(candidate[:900])
