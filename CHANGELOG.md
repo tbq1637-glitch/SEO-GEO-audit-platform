@@ -2,6 +2,27 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — STEP 5 Only recovery for failed Run #26 (V2 development)
+
+### Failure confirmed
+- GitHub SEO and GEO Audit **Run #26** completed STEP 1–4, five Google searches, 15/15 query competitor samples, DOM recovery, bounded video evidence and completed visual analysis, but `Integrated evidence-based fusion report` failed with `openai.APITimeoutError` after the old 240-second request timeout.
+- Original Run #26 Artifact `seo-geo-audit-26` was preserved and includes the full pre-fusion evidence; rebuilding those steps or re-spending Google search credits is unnecessary.
+- A timeout does **not** prove an API quota problem or that the failed request was unbilled.
+
+### Added / changed
+- `scripts/fusion_api.py`: bound individual STEP 5 requests to 300 seconds by default (allowed 90–420), at most **two attempts total** with zero SDK retries, and an eight-second pause only for selected transient failures (timeout, connection error, server error, rate limit). Reject incomplete/empty model output instead of publishing partial results.
+- Record `reports/step5_fusion_diagnostics.json`: request-input digest, per-source serialized character counts, rough non-billing token estimate, model, attempt durations, error types, response status and actual API token usage when returned. Do not log raw page text or API keys.
+- Retain all original SiteOne JSON files in artifacts while passing native SEO/AI SEO essential sections and selected original scan tables to STEP 5, eliminating redundant crawler tables from the high-reasoning prompt. Keep all query and competitor text/structure sampling and GEO evidence limits visible; no new SEO/GEO score is invented.
+- `scripts/validate_fusion_replay.py`: verify source Actions run ID, repository, V2 branch, audit workflow, completed run and exact unexpired Artifact via read-only GitHub REST; then verify target URL, five completed search groups and archived competitor Markdown before spending OpenAI API tokens.
+- Existing `.github/workflows/audit.yml` now supports two selectable modes: `full` (the existing complete audit, unchanged steps) and `step5_only` (read Run #26's archived evidence using GitHub Actions download-artifact, run only fusion and HTML rendering, then upload an output-only replay Artifact). `source_run_id` defaults to `42764278546`; user must enter the archived target URL for consistency. No SiteOne/GEO scanner installation, SerpApi, website crawling, video extraction or visual AI runs in this mode.
+- Add offline tests for transient timeout followed by successful retry, twice-failed cap, incomplete-output rejection, diagnostics redaction, input de-duplication, replay evidence validation and source branch checks.
+
+### Status / limitations
+- **Offline Structure Integration Tests #47: Success**, including the new replay/API tests and syntax validation. Real STEP 5 replay has **not yet been executed or compared against Run #23**.
+- If the GitHub Workflow UI does not expose the new V2 mode after branch selection, do **not** run the default full audit. Investigate dispatch UI availability without silently modifying `main`.
+- Only V2 was updated. Do not merge to `main` until a successful archived-input replay and report comparison.
+- A timeout can still recur; no guarantee that a second attempt is free or successful. Output quality is not judged until the actual report is available.
+
 ## 2026-11-10 — Run #25 video test fixture compatibility repair
 
 ### Diagnosis
