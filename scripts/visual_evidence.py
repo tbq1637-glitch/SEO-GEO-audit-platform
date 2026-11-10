@@ -126,8 +126,8 @@ def run_screenshot(item, viewport):
         proc = subprocess.run(cmd, capture_output=True, text=True,
                               timeout=100, check=False)
         diagnostic["exit_code"] = proc.returncode
-        diagnostic["stderr_tail"] = _text(proc.stderr)[-6000:]
-        diagnostic["stdout_tail"] = _text(proc.stdout)[-3000:]
+        diagnostic["stderr_tail"] = _text(getattr(proc, "stderr", None))[-6000:]
+        diagnostic["stdout_tail"] = _text(getattr(proc, "stdout", None))[-3000:]
     except subprocess.TimeoutExpired as exc:
         diagnostic["timed_out"] = True
         diagnostic["exception"] = "TimeoutExpired"
