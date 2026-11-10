@@ -2,6 +2,29 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Competitor evidence fidelity, customer-journey planning and browser export recovery
+
+### Confirmed source and findings
+- The "one competitor URL per domain per query" rule was self-authored in `scripts/competitor_evidence.py`, **not** imposed by upstream SiteOne or GEO Optimizer. Run #23 Q5 erroneously discarded seven distinct YouTube URLs as duplicate domains; video content still requires a distinct evidence strategy and is **not** presented as captured HTML.
+- All seven Run #23 generated candidate queries had `informational` as their generic search intent, so the previous automatic diversity selector could not distinguish registration/service discovery from general learning.
+- Run #23 archived six native SiteOne browser JSONs reporting `MarkdownExporter error: Export error: Markdown export directory not set` despite subprocess return code 0. This identifies a missing CLI export directory argument, **not evidence that all six websites failed to render**.
+- The prior Run #20 report included stronger ready-to-edit copy, hosting-specific SEO implementation guidance, verification criteria and launch preconditions. Run #23 improved competition coverage but weakened parts of these practical deliverables.
+
+### Changed
+- Permit distinct URLs from the same host within one query. Deduplicate exact URLs and reuse previously fetched text across queries. Do not mistake host similarity for duplicate content; keep status and source provenance.
+- STEP 2 now distinguishes **customer journey stage** (`understand`, `discover`, `evaluate`, `participate`, `practical`) from generic SEO query intent, and records AI-predicted `expected_result_type` (`webpage`, `mixed`, `video`). Five-query selection prefers coverage across these stages and generally prioritizes webpage-oriented evidence. Such predictions are **not actual SERP evidence**.
+- Increment plan/cache versions so old intent classifications cannot be silently reused as valid new research.
+- Correct `--markdown-export-dir` plus `--markdown-export-single-file` for both the target-page SiteOne preflight and conditional competitor browser recovery.
+- Check SiteOne's native JSON `summary.items` for `MarkdownExporter` errors in addition to process exit code and substantive output. Keep error diagnostics and prevent login/browser compatibility pages from silently becoming confirmed page evidence.
+- When a browser successfully recovers competitor text, promote it only to a query with a remaining 3-page quota. Archive the rendered source, reconcile `competitor_evidence.json` and its human-readable summary, and keep excess successful renders as supplemental rather than increasing query sample counts past three.
+- Strengthen STEP 5 instructions to restore **source-grounded implementation detail**: concrete suggested English copy (title/intro/FAQ where supported), page-specific changes, explicit verification/acceptance checks, platform-specific robots/canonical/redirect guidance when applicable, and real-launch approval prerequisites. Do not invent unknowns to meet formatting goals.
+
+### Validation and remaining limitations
+- Focused no-API tests cover customer-journey diversity, video-priority handling, multiple URLs on one domain, SiteOne MarkdownExporter failure recognition, correct CLI flags in target/competitor browser recovery, and post-browser quota/report consistency.
+- Browser export recovery and the improved report instructions **still require a new live end-to-end acceptance run**. We have not claimed that previously blocked Facebook/YouTube pages are now accessible or that actual AI citations were checked.
+- Q5/video SERP result suitability and direct-competitor role scoring are deferred for separate design discussion. The existing text/visual analysis limits remain otherwise intact.
+- Changes are on `v2-search-competitiveness` only; do not merge into `main` before the user accepts the new results.
+
 ## 2026-11-10 — STEP 2/3 seven candidates to five searches and 5×3 captures (development)
 
 ### Added and changed
