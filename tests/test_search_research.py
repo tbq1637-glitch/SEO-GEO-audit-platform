@@ -41,11 +41,11 @@ def sandbox(tmp_path, monkeypatch):
 
 def fake_plan(*_args, **_kwargs):
     return SimpleNamespace(output_parsed=m.SearchPlan(queries=[
-        m.QueryCandidate(query="community wellbeing webinar Australia", intent="informational", reason="Related topic"),
-        m.QueryCandidate(query="online mental health education webinars", intent="informational", reason="Alternative informational demand"),
-        m.QueryCandidate(query="mental health education webinar registration", intent="commercial", reason="Participation intent"),
-        m.QueryCandidate(query="community wellness events near Sydney", intent="local", reason="Local relevance"),
-        m.QueryCandidate(query="free community wellbeing online session", intent="comparison", reason="Compare options"),
+        m.QueryCandidate(query="community wellbeing webinar Australia", intent="informational", reason="Related topic", journey_stage="understand", expected_result_type="webpage"),
+        m.QueryCandidate(query="online mental health education webinars", intent="informational", reason="Alternative informational demand", journey_stage="discover", expected_result_type="webpage"),
+        m.QueryCandidate(query="mental health education webinar registration", intent="commercial", reason="Participation intent", journey_stage="participate", expected_result_type="webpage"),
+        m.QueryCandidate(query="community wellness events near Sydney", intent="local", reason="Local relevance", journey_stage="practical", expected_result_type="webpage"),
+        m.QueryCandidate(query="free community wellbeing online session", intent="comparison", reason="Compare options", journey_stage="evaluate", expected_result_type="webpage"),
     ]))
 
 
