@@ -81,6 +81,9 @@ def verify_local(root=ROOT):
     url = profile.get("source_url", "")
     if not url.startswith("https://") or snapshot.get("target_url") != url:
         raise RuntimeError("Source business profile and Google snapshot target mismatch")
+    expected_url = os.environ.get("EXPECTED_TARGET_URL", "").strip()
+    if expected_url and url.rstrip("/") != expected_url.rstrip("/"):
+        raise RuntimeError("Saved audit target differs from the explicitly requested URL")
     if len(snapshot.get("groups", [])) != 5 or any(g.get("error") for g in snapshot["groups"]):
         raise RuntimeError("Expected five completed source Google query groups")
     if (competitors.get("source_snapshot") != "google_serp.json"
