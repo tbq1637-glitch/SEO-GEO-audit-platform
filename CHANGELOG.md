@@ -20,7 +20,7 @@ This file is the canonical record of functional changes. Entries distinguish imp
 - `main` is unchanged pending offline and live validation.
 
 ### Acceptance pending
-- Offline GitHub Actions tests and live five-query audit **not yet confirmed** at time of this entry.
+- Offline GitHub Actions CI **passed**: Offline Structure Integration Tests #21 on 2026-11-10 (Python syntax validation + all enabled regression tests). Live five-query/15-sample audit **not yet performed**.
 - After successful 5×3 rollout, conduct the separately requested **three-generation quality comparison** against the pre-structure baseline (~Run #20), Run #22 and the new report, including improvements **and regressions**, source evidence, omissions and responsible code changes. Do not begin this comparison before the user supplies/confirms all three applicable reports.
 
 ## Planned acceptance — Three-generation report comparison (after 5×3)
