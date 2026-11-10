@@ -188,7 +188,11 @@ def main():
                 "query_id": item.get("query_id"),
                 "embed_count": item.get("embed_count"),
                 "embeds": item.get("embeds", [])[:6],
+                "rendered_markdown_video_urls": item.get(
+                    "rendered_markdown_video_urls", [])[:8],
                 "video_schema": item.get("video_schema", [])[:5],
+                "static_main_text_characters": item.get("static_main_text_characters"),
+                "source_html_sha256": item.get("source_html_sha256"),
                 "caption_links": item.get("caption_links", [])[:5],
                 "metadata": item.get("metadata", {}),
                 "transcript_status": item.get("transcript_status"),
