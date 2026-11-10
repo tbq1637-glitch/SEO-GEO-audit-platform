@@ -28,7 +28,7 @@ REPORTS = Path("reports")
 API_URL = "https://serpapi.com/search.json"
 MODEL = os.getenv("SEARCH_PLANNING_MODEL", "gpt-6.1-sol")
 MAX_LIVE_REQUESTS = 2
-MAX_RESULTS_PER_QUERY = 5
+MAX_RESULTS_PER_QUERY = 10
 
 
 class QueryCandidate(BaseModel):
@@ -194,13 +194,16 @@ def create_client():
     return OpenAI(timeout=160)
 
 
-def create_plan(profile: dict, client: object) -> list[dict]:
+def create_plan(profile: dict, client: object, candidate_count: int = 5) -> list[dict]:
     instructions = (
         "You are planning a SMALL SEO search-intent research "
         "experiment, NOT optimizing a scanner score. "
-        "Return exactly FIVE distinct natural English Google "
+        f"Return exactly {candidate_count} distinct natural English Google "
         "queries for genuine search intents relevant to the "
         "provided business profile. "
+        "Order proposals by relevance to the page's stated customer goal "
+        "and diversity of actual customer search intent. Do not let broad "
+        "informational searches crowd out service or participation searches. "
         "Prefer at least one informational query and one practical "
         "service/participation query where appropriate; do not "
         "force unrelated commercial intent. "
@@ -258,12 +261,12 @@ def create_plan(profile: dict, client: object) -> list[dict]:
             "status": "AI proposed; NOT yet checked in Google",
         })
 
-        if len(found) == 5:
+        if len(found) == candidate_count:
             break
 
-    if len(found) < 2:
+    if len(found) < candidate_count:
         raise RuntimeError(
-            "Search plan contains fewer than two safe, distinct queries"
+            f"Search plan contains fewer than {candidate_count} safe, distinct queries"
         )
 
     return found
