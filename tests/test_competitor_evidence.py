@@ -42,23 +42,29 @@ def test_failed_competitors_do_not_consume_success_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "OUT", tmp_path)
     snapshot = {
         "target_url": "https://target.example.org",
-        "groups": [{"query": "test query", "results": [
-            {"url": f"https://site{i}.example.org/page", "position": i, "title": str(i)}
-            for i in range(1, 6)
-        ]}],
+        "groups": [{"id": f"Q{q}", "query": f"test query {q}", "error": None,
+                    "results": [
+            {"url": f"https://q{q}-site{i}.example.org/page", "position": i,
+             "title": str(i)} for i in range(1, 6)
+        ]} for q in range(1, 6)],
     }
     (tmp_path / "google_serp.json").write_text(json.dumps(snapshot))
     calls = []
     def fetch(url):
         calls.append(url)
-        if len(calls) == 1:
+        if "-site1." in url:
             return None, {"status": "access_blocked", "http_status": 403}
-        return "<html><body>" + ("Good page content " * 30) + "</body></html>", {"http_status": 200}
+        return "<html><body>" + ("Good page content " * 30) + "</body></html>", {
+            "http_status": 200
+        }
     monkeypatch.setattr(m, "fetch_html", fetch)
-    monkeypatch.setattr(m, "convert_html", lambda html, index: ("Content " * 100, 0, "log.txt"))
+    monkeypatch.setattr(m, "convert_html",
+                        lambda html, index: ("Content " * 100, 0, "log.txt"))
     m.main()
     data = json.loads((tmp_path / "competitor_evidence.json").read_text())
-    assert data["successful_pages"] == 3
-    assert data["attempted_pages"] == 4
+    assert data["query_sample_count"] == 15
+    assert data["successful_pages"] == 15
+    assert data["attempted_pages"] == 20
+    assert all(q["successes"] == 3 for q in data["per_query"])
     assert data["google_api_requests_by_this_step"] == 0
     assert data["openai_requests_by_this_step"] == 0
