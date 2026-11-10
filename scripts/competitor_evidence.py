@@ -15,8 +15,9 @@ import requests
 from bs4 import BeautifulSoup
 
 OUT = Path("reports")
-MAX_PAGES = 3
-MAX_ATTEMPTS = 7
+MAX_PER_QUERY = 3
+MAX_ATTEMPTS_PER_QUERY = 10
+MAX_QUERIES = 5
 MAX_CHARS = 16000
 MAX_HTML_BYTES = 1_500_000
 TIMEOUT = 25
@@ -133,88 +134,156 @@ def main():
         print("Competitor capture skipped: cached Google snapshot unavailable")
         return
     data = json.loads(source.read_text(encoding="utf-8"))
+    groups = data.get("groups", [])
+    if len(groups) != MAX_QUERIES or any(g.get("error") for g in groups):
+        raise RuntimeError("Five completed Google query groups required")
     target_host = (urlsplit(data.get("target_url", "")).hostname or "").lower()
-    records, seen = [], set()
-    attempts = successes = 0
-    for group in data.get("groups", []):
-        for result in group.get("results", []):
+    records, per_query = [], []
+    # URL cache includes both successful and failed attempts to avoid
+    # repeatedly downloading the same content across search intents.
+    fetched = {}
+    attempts = 0
+    successes = 0
+
+    for group_index, group in enumerate(groups, 1):
+        query_id = group.get("id") or f"Q{group_index}"
+        query = group.get("query", "")
+        group_successes = group_attempts = 0
+        seen_hosts = set()
+        for result in group.get("results", [])[:MAX_ATTEMPTS_PER_QUERY]:
             url = str(result.get("url", ""))
             host = (urlsplit(url).hostname or "").lower()
             row = {
-                "query": group.get("query", ""),
+                "query_id": query_id, "query": query,
                 "position": result.get("position"),
                 "title": result.get("title", ""),
                 "snippet": result.get("snippet", ""),
-                "url": url, "domain": host, "status": "not_selected",
+                "url": url, "domain": host,
+                "status": "not_selected",
                 "source": "SerpApi Google organic snapshot",
             }
             valid, reason = eligible(url)
-            if not valid:
+            if group_successes >= MAX_PER_QUERY:
+                row["reason"] = "Per-query three-success target reached"
+            elif not valid:
                 row.update(status="unresolved_url", reason=reason)
             elif host == target_host:
-                row.update(status="target_site")
-            elif host in seen:
-                row.update(status="duplicate_domain")
-            elif successes >= MAX_PAGES or attempts >= MAX_ATTEMPTS:
-                row.update(reason="Capture budget exhausted")
+                row["status"] = "target_site"
+            elif host in seen_hosts:
+                row["status"] = "duplicate_domain_in_query"
             else:
-                seen.add(host)
-                attempts += 1
-                html, info = fetch_html(url)
-                row.update(info)
-                if html is not None:
-                    soup = BeautifulSoup(html, "html.parser")
-                    for node in soup(["script", "style", "noscript"]):
-                        node.decompose()
-                    visible = soup.get_text(" ", strip=True)
-                    row["visible_text_characters"] = len(visible)
-                    if len(visible) < 200:
-                        raw_path = OUT / f"competitor_{attempts}_source.html"
-                        raw_path.write_text(html, encoding="utf-8")
-                        row.update(status="insufficient_html",
-                                   html_file=raw_path.name,
-                                   capture_stem=f"competitor_{attempts}")
-                    else:
-                        markdown, exit_code, log = convert_html(html, attempts)
-                        row["html_file"] = f"competitor_{attempts}_source.html"
-                        row["capture_stem"] = f"competitor_{attempts}"
-                        row.update(conversion_exit_code=exit_code, log_file=log)
-                        if exit_code == 0 and len(markdown.strip()) >= 200:
-                            successes += 1
-                            row.update(status="captured",
-                                       source="SerpApi + validated HTML + SiteOne local conversion",
-                                       markdown_file=f"competitor_{attempts}.md",
-                                       excerpt=markdown[:MAX_CHARS],
-                                       extracted_characters=len(markdown))
+                # Distinct domains inside a query improve coverage;
+                # across queries, identical URLs reuse saved evidence.
+                seen_hosts.add(host)
+                cached = fetched.get(url)
+                if cached is not None:
+                    row.update({
+                        k: value for k, value in cached.items()
+                        if k not in ("query_id", "query", "position", "title",
+                                     "snippet", "url", "domain", "source")
+                    })
+                    row["reused"] = True
+                    row["reuse_source_url"] = url
+                    # No repeated large excerpt: the source markdown filename
+                    # provides the full retained text.
+                    row.pop("excerpt", None)
+                    if row.get("status") == "captured":
+                        group_successes += 1
+                elif group_attempts >= MAX_ATTEMPTS_PER_QUERY:
+                    row["reason"] = "Per-query request attempt limit reached"
+                else:
+                    group_attempts += 1
+                    attempts += 1
+                    html, info = fetch_html(url)
+                    row.update(info)
+                    if html is not None:
+                        soup = BeautifulSoup(html, "html.parser")
+                        for node in soup(["script", "style", "noscript"]):
+                            node.decompose()
+                        visible = soup.get_text(" ", strip=True)
+                        row["visible_text_characters"] = len(visible)
+                        stem = f"competitor_{attempts}"
+                        row["capture_stem"] = stem
+                        row["html_file"] = stem + "_source.html"
+                        if len(visible) < 200:
+                            (OUT / row["html_file"]).write_text(
+                                html, encoding="utf-8")
+                            row["status"] = "insufficient_html"
                         else:
-                            row.update(status="conversion_failed",
-                                       reason="No usable Markdown; see conversion log")
-                # Do not retry blocked or failed URLs.
+                            markdown, exit_code, log = convert_html(html, attempts)
+                            row.update(conversion_exit_code=exit_code,
+                                       log_file=log)
+                            if exit_code == 0 and len(markdown.strip()) >= 200:
+                                group_successes += 1
+                                successes += 1
+                                row.update(
+                                    status="captured",
+                                    source="SerpApi + validated HTML + SiteOne local conversion",
+                                    markdown_file=stem + ".md",
+                                    extracted_characters=len(markdown),
+                                    excerpt=markdown[:MAX_CHARS],
+                                )
+                            else:
+                                row.update(status="conversion_failed",
+                                           reason="No usable Markdown; see conversion log")
+                    # Cache failed outcomes as well to avoid repeats.
+                    fetched[url] = dict(row)
             records.append(row)
-    output = {
+        per_query.append({
+            "id": query_id, "query": query, "successes": group_successes,
+            "target_successes": MAX_PER_QUERY,
+            "new_requests": group_attempts,
+            "met_target": group_successes >= MAX_PER_QUERY,
+            "shortfall": max(0, MAX_PER_QUERY - group_successes),
+        })
+
+    result = {
         "source_snapshot": "google_serp.json",
         "searched_at_utc": data.get("searched_at_utc"),
-        "successful_pages": successes, "attempted_pages": attempts,
-        "max_successful_pages": MAX_PAGES, "max_attempts": MAX_ATTEMPTS,
-        "google_api_requests_by_this_step": 0, "openai_requests_by_this_step": 0,
+        "successful_pages": successes,
+        "unique_captured_urls": successes,
+        "query_sample_count": sum(x["successes"] for x in per_query),
+        "attempted_pages": attempts,
+        "max_successful_pages_per_query": MAX_PER_QUERY,
+        "max_attempts_per_query": MAX_ATTEMPTS_PER_QUERY,
+        "max_query_samples": MAX_QUERIES * MAX_PER_QUERY,
+        "per_query": per_query,
+        "google_api_requests_by_this_step": 0,
+        "openai_requests_by_this_step": 0,
         "ai_search_tested": False,
-        "warning": "Observed Google positions do not prove ranking causes.",
+        "warning": "Google positions do not establish ranking causes; capture shortfalls are disclosed.",
         "pages": records,
     }
     (OUT / "competitor_evidence.json").write_text(
-        json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
     )
-    lines = ["# STEP 3 - Competitor Content Evidence", "",
-             "Google SERP snapshot and validated public-HTML capture; no paid APIs.", "",
-             "| Position | Domain | Status |", "|---|---|---|"]
+    lines = ["# STEP 3 - Five-query Competitor Content Evidence", "",
+             "Query-specific samples. Same URL across different queries is reused.",
+             "No additional paid API calls for direct HTTPS capture.", "",
+             "| Query | Captured / target | New URL attempts | Coverage |",
+             "|---|---:|---:|---|"]
+    for q in per_query:
+        lines.append(
+            f"| {q['id']} | {q['successes']}/{MAX_PER_QUERY} "
+            f"| {q['new_requests']} "
+            f"| {'complete' if q['met_target'] else 'partial'} |")
+    lines.extend(["", "## Source pages", "",
+                  "| Query | Google position | Domain | Status |",
+                  "|---|---:|---|---|"])
     for row in records:
-        lines.append(f"| {row['position']} | {row['domain']} | {row['status']} |")
-    lines.extend(["", "Blocked/unavailable pages retain SERP evidence but are not content-reviewed.",
-                  "Google rank alone does not establish the reason for ranking."])
+        lines.append(
+            f"| {row['query_id']} | {row['position']} | "
+            f"{row['domain']} | {row['status']}"
+            f"{' (reused)' if row.get('reused') else ''} |")
+    lines.extend(["", "Blocked/unavailable pages are retained as search evidence, "
+                  "not represented as full-text competitors.",
+                  "Three captures per question are targets, not guaranteed results."])
     (OUT / "COMPETITOR_EVIDENCE.md").write_text(
-        "\n".join(lines) + "\n", encoding="utf-8"
-    )
-    print(f"Competitor capture: {successes} successful of {attempts} attempts; no paid API calls")
+        "\n".join(lines) + "\n", encoding="utf-8")
+    print(
+        f"Competitor evidence: {result['query_sample_count']}/15 query samples, "
+        f"{successes} distinct captured URLs, {attempts} new URL requests")
 
 
 if __name__ == "__main__":
