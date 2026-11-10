@@ -135,6 +135,7 @@ def test_browser_recovery_updates_only_unfilled_query_quota(tmp_path, monkeypatc
     recovered_text = "# Webinar joining guide\n" + "Confirmed section content " * 30
     (structure_dir / "competitor_4_rendered.md").write_text(recovered_text)
     (structure_dir / "competitor_8_rendered.md").write_text(recovered_text)
+    (root / "competitor_8.md").write_text("Incomplete static excerpt")
     per_query = [
         {"id": "Q1", "query": "one", "successes": 3},
         {"id": "Q2", "query": "two", "successes": 0},
@@ -167,4 +168,36 @@ def test_browser_recovery_updates_only_unfilled_query_quota(tmp_path, monkeypatc
     assert record["pages"][-2]["supplemental_not_in_quota"]
     assert record["pages"][-1]["browser_recovered"]
     assert (root / "competitor_8.md").read_text() == recovered_text
+    summary = (root / "COMPETITOR_EVIDENCE.md").read_text()
+    assert "Final Competitor Capture Coverage" in summary
+    assert "| Q2 | 1 | 3 | 1 |" in summary
     assert record["pages"][-1]["status"] == "captured"
+
+
+
+def test_step1_dynamic_preflight_verifies_siteone_export(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import business_identification as target
+    monkeypatch.chdir(tmp_path)
+    html = '<html><body><div id="root">Loading...</div><script src="/main.js"></script></body></html>'
+    class Response:
+        url = "https://example.org/"
+        text = html
+        headers = {"Content-Type": "text/html"}
+        def raise_for_status(self):
+            pass
+    monkeypatch.setattr(target.requests, "get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr(target.shutil, "which", lambda name: "/fake/chromium")
+    def fake_process(cmd, **kwargs):
+        assert any(arg.startswith("--markdown-export-dir=") for arg in cmd)
+        assert any(arg.startswith("--markdown-export-single-file=") for arg in cmd)
+        export_dir = tmp_path / "reports" / "step3_structure"
+        (export_dir / "target_rendered.md").write_text(
+            "# Registration information\n" + "A confirmed rendered page section. " * 30)
+        (export_dir / "target_browser.json").write_text(
+            json.dumps({"summary": {"items": []}}))
+        return SimpleNamespace(returncode=0, stderr="")
+    monkeypatch.setattr(target.subprocess, "run", fake_process)
+    result = target.extract_page("https://example.org/")
+    assert result["browser_recovery_status"] == "SiteOne rendered DOM Markdown captured"
+    assert "Registration information" in result["rendered_markdown_excerpt"]
