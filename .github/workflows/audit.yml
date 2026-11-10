@@ -156,9 +156,6 @@ jobs:
         run: |
           python scripts/competitor_evidence.py
 
-      - name: STEP 3 - Extract video context and conditional publisher text tracks
-        run: python scripts/video_evidence.py
-
       - name: STEP 3 - Inspect original HTML structure and dynamic signals
         id: structure_audit
         run: python scripts/structured_capture.py assess
@@ -166,6 +163,9 @@ jobs:
       - name: STEP 3 - Recover rendered DOM when static extraction is incomplete
         if: ${{ steps.structure_audit.outputs.browser_needed == 'true' }}
         run: python scripts/structured_capture.py recover
+
+      - name: STEP 3 - Extract video context and conditional publisher text tracks
+        run: python scripts/video_evidence.py
 
       - name: STEP 4 - GEO native access and website structure diagnostics
         run: python scripts/geo_extended_diagnostics.py
