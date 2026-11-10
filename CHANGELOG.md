@@ -2,6 +2,19 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## Planned acceptance — Three-generation report comparison (after 5×3)
+
+**Deferred by user request; do not perform this comparison until the 5-query × 3-successful-pages update is implemented and tested.**
+
+Comparison baselines:
+- **Baseline A:** pre-structural/visual audit, approximately Run #20 (confirm exact report and audited URL before comparing).
+- **Baseline B:** post-structural extraction, conditional rendering, and screenshot-based visual analysis, Run #22; user-supplied `SEO_GEO_COMBINED_REPORT.html` is available in this conversation.
+- **Baseline C:** future complete 5×3 audit report, not generated yet.
+
+Acceptance should compare source evidence, not just report length or scores: target URL, snapshot date, query count/intent, per-query captured pages, HTML/Markdown completeness, headings/table/FAQ relationships, dynamic evidence, SEO/GEO coverage, visual evidence, factual precision, relevant competitor selection, source attribution, actionable recommendations, contradictions, omissions, false positives, costs and report clarity.
+
+**Required conclusions:** identify actual improvements, regressions and unchanged issues, connect each to specific pipeline/code changes where evidence supports causality, and distinguish changed search snapshots/targets from implementation effects. Do not infer quality improvement merely from more samples or more text.
+
 ## 2026-11-10 — Run #22 screenshot performance investigation (no runtime changes)
 
 ### Investigated
