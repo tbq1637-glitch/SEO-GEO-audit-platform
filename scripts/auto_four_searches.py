@@ -13,7 +13,7 @@ import search_research as search
 ROOT = Path("reports")
 CANDIDATES = 7
 SELECTED = 5
-BATCH = "auto-five-v1"
+BATCH = "auto-five-v2"
 
 
 def load(name):
@@ -28,31 +28,44 @@ def save(name, value):
 
 
 def choose_queries(plan, profile):
-    """Prioritize AI-ranked candidates, with distinct search intent coverage."""
-    unique, selected, seen_queries, seen_intents = [], [], set(), set()
+    """Pick five AI-ranked customer-journey intents, avoiding video-only bias.
+
+    This is a selection heuristic over AI-authored classifications, not an
+    invented estimate of Google demand or actual SERP media composition.
+    """
+    unique, seen = [], set()
     for candidate in plan["queries"]:
         query = search.validate_query(candidate["query"], profile)
-        if query.casefold() not in seen_queries:
-            seen_queries.add(query.casefold())
+        if query.casefold() not in seen:
+            seen.add(query.casefold())
             unique.append({**candidate, "query": query})
     if len(unique) < CANDIDATES:
         raise RuntimeError("Seven distinct, safe candidate queries required")
-    # Preserve the model's ranked order, first covering unique intent labels.
-    for candidate in unique:
-        intent = candidate.get("intent", "")
-        if intent and intent not in seen_intents:
-            selected.append(candidate)
-            seen_intents.add(intent)
-        if len(selected) == SELECTED:
-            break
-    for candidate in unique:
-        if len(selected) == SELECTED:
-            break
-        if candidate not in selected:
-            selected.append(candidate)
-    if len(selected) != SELECTED:
-        raise RuntimeError("Exactly five approved automatic queries required")
-    return selected
+
+    chosen, seen_stages = [], set()
+    # Seek broad customer-journey coverage before redundant queries. Prefer
+    # usable HTML or mixed search evidence over a video-only prediction.
+    for media in ("webpage", "mixed", "video"):
+        for candidate in unique:
+            if len(chosen) == SELECTED:
+                break
+            stage = candidate.get("journey_stage") or candidate.get("intent", "")
+            if (candidate.get("expected_result_type", "webpage") == media
+                    and stage and stage not in seen_stages):
+                chosen.append(candidate)
+                seen_stages.add(stage)
+    # Fill with relevant remaining entries in their original AI ranked order,
+    # giving webpage-oriented candidates the first opportunity.
+    for media in ("webpage", "mixed", "video"):
+        for candidate in unique:
+            if len(chosen) == SELECTED:
+                break
+            if candidate not in chosen and candidate.get(
+                    "expected_result_type", "webpage") == media:
+                chosen.append(candidate)
+    if len(chosen) != SELECTED:
+        raise RuntimeError("Exactly five search queries required")
+    return chosen
 
 
 def main():
@@ -61,11 +74,11 @@ def main():
     plan = load("search_intents.json")
     if (plan.get("target") != profile["source_url"]
             or len(plan.get("queries", [])) < CANDIDATES
-            or plan.get("planning_version") != 2):
+            or plan.get("planning_version") != 3):
         if not os.getenv("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY missing for seven-query planning")
-        plan = {"target": profile["source_url"], "planning_version": 2,
-                "selection_method": "AI relevance rank, diversify intents, pick five",
+        plan = {"target": profile["source_url"], "planning_version": 3,
+                "selection_method": "AI-ranked customer journey stages, prefer webpage evidence, pick five",
                 "queries": search.create_plan(
                     profile, search.create_client(), candidate_count=CANDIDATES)}
     chosen = choose_queries(plan, profile)
@@ -100,6 +113,8 @@ def main():
         hits, error = search.search_once(query, api_key)
         groups.append({"id": f"Q{i+1}", "query": query,
                        "intent": chosen[i].get("intent"),
+                       "journey_stage": chosen[i].get("journey_stage"),
+                       "expected_result_type": chosen[i].get("expected_result_type"),
                        "results": hits, "error": error})
         save("google_serp.json", {
             "provider": "SerpApi - Google organic",
