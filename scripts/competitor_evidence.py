@@ -45,6 +45,14 @@ def eligible(url):
         return False, "Malformed URL"
 
 
+def is_video_platform_url(url):
+    """Recognize hosting media pages without claiming to understand video."""
+    host = (urlsplit(url).hostname or "").lower()
+    hosts = ("youtube.com", "youtu.be", "vimeo.com",
+             "dailymotion.com", "wistia.com")
+    return any(host == h or host.endswith("." + h) for h in hosts)
+
+
 def public_dns(url):
     host = urlsplit(url).hostname
     try:
@@ -169,6 +177,9 @@ def main():
                 row.update(status="unresolved_url", reason=reason)
             elif host == target_host:
                 row["status"] = "target_site"
+            elif is_video_platform_url(url):
+                row.update(status="video_reference",
+                           reason="Video platform SERP result: metadata evidence only; not counted as HTML content")
             elif url in seen_urls_in_query:
                 row["status"] = "duplicate_url_in_query"
             else:
