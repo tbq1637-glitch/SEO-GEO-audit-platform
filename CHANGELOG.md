@@ -2,6 +2,18 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Run #22 screenshot performance investigation (no runtime changes)
+
+### Investigated
+- Archived the evidence-based analysis in `docs/SITEONE_SCREENSHOT_PERFORMANCE_AUDIT.md`.
+- Four competitor viewport tasks exceeded the 100-second subprocess limit while producing valid images; the last logged resource progress was Kirana desktop 67/135, mobile 83/134, COPMI desktop/mobile 95/109.
+- Identified the existing screenshot-only limits `--workers=1` and `--max-reqs-per-sec=1` as a plausible bottleneck for pages with many assets. This is a hypothesis strongly supported by the resource-progress logs, not a confirmed root cause.
+
+### Deferred pending verification
+- No screenshot timeouts, crawler request rates, API calls, or screenshot selection logic have changed.
+- Proposed an isolated, no-API diagnostic comparing the current parameters with `--workers=2 --max-reqs-per-sec=3` on one previously observed competitor page; preserve the 35/100-second limits and validate screenshots and evidence before adopting any changes.
+- No end-to-end re-run is required to inspect this hypothesis.
+
 ## 2026-11-10 — Screenshot timeout diagnosis and bounded fallback
 
 ### Changed
