@@ -2,6 +2,27 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — STEP 2/3 seven candidates to five searches and 5×3 captures (development)
+
+### Added and changed
+- STEP 2 automatically proposes **seven safe, relevant, ranked search-intent candidates**, then selects **five** with intent diversity; preserves selection decisions and unused candidate records. Staff review/approval is a **future optional mode**, not yet implemented.
+- STEP 3 runs **exactly five** Google organic searches at most once each per matching cached snapshot, with up to **ten ranked organic results per query** (SerpApi AU/en).
+- Each query independently seeks **three successfully captured competitor pages**, skipping inaccessible/invalid pages and advancing to the next-ranked result. Results are capped by available top-ten candidates and per-query attempt limits: fifteen are a target, not guaranteed.
+- Deduplicate domains **within each query** for diversity. An identical URL appearing under multiple queries is fetched and converted only once; the Google position and query membership are still retained separately. Track both unique URLs and per-query samples.
+- Preserve all captured HTML, SiteOne Markdown, metadata, structure and visual samples in run artifacts. STEP 5 uses a **bounded, provenance-labelled** cross-page sample plus a full section heading outline and clearly records any truncation rather than assuming unseen content is absent.
+- Expand the GitHub audit job timeout from 25 to 50 minutes to accommodate bounded extra page attempts. Screenshot scope and timeout settings are unchanged.
+- Version the research cache for the new five-query workflow so an old four-query snapshot cannot be silently accepted.
+- Add offline regression tests for seven-to-five planning, five searches/cache reuse, per-query 3-page ranked fallback, duplicate URL reuse, honest shortfalls and bounded STEP 5 evidence.
+
+### Not changed
+- No live AI search citation verification, no new local business competitor ranking metric, and no automatic website modification.
+- SiteOne/GEO Optimizer remain authoritative third-party scanners. Dynamic browser capture remains conditional, and screenshot/vision reviews remain representative, not 15×2 per run.
+- `main` is unchanged pending offline and live validation.
+
+### Acceptance pending
+- Offline GitHub Actions tests and live five-query audit **not yet confirmed** at time of this entry.
+- After successful 5×3 rollout, conduct the separately requested **three-generation quality comparison** against the pre-structure baseline (~Run #20), Run #22 and the new report, including improvements **and regressions**, source evidence, omissions and responsible code changes. Do not begin this comparison before the user supplies/confirms all three applicable reports.
+
 ## Planned acceptance — Three-generation report comparison (after 5×3)
 
 **Deferred by user request; do not perform this comparison until the 5-query × 3-successful-pages update is implemented and tested.**
