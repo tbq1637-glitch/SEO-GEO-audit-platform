@@ -78,3 +78,48 @@ def test_recover_records_missing_chrome_without_crashing(tmp_path, monkeypatch):
     c.recover()
     data = json.loads((evidence / "manifest.json").read_text())
     assert data["browser_unavailable"]
+
+
+def test_upstream_markdown_export_error_is_not_mistaken_for_success(tmp_path):
+    rendered = tmp_path / "page.md"
+    report = tmp_path / "browser.json"
+    report.write_text(json.dumps({"summary": {"items": [
+        {"aplCode": "MarkdownExporter", "status": "CRITICAL",
+         "text": "Markdown export directory not set"}
+    ]}}))
+    text, errors = c.inspect_siteone_export(rendered, report, 0)
+    assert errors and any("directory not set" in e for e in errors)
+    assert text == ""
+
+
+def test_rendered_dom_uses_siteone_export_directory_and_checks_status(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import competitor_evidence
+    root = tmp_path / "reports"
+    out = root / "step3_structure"
+    out.mkdir(parents=True)
+    (out / "manifest.json").write_text(json.dumps({
+        "pages": [{"stem": "competitor_1", "url": "https://example.org/webinar",
+                   "browser_needed": True}],
+        "target_browser_needed": False
+    }))
+    monkeypatch.setattr(c, "ROOT", root)
+    monkeypatch.setattr(c, "EVIDENCE", out)
+    monkeypatch.setenv("CHROME_PATH", "/fake/chromium")
+    monkeypatch.setattr(competitor_evidence, "public_dns", lambda _: True)
+    seen = []
+    def fake_run(cmd, **kwargs):
+        seen.extend(cmd)
+        assert any(arg.startswith("--markdown-export-dir=") for arg in cmd)
+        assert any(arg.startswith("--markdown-export-single-file=") for arg in cmd)
+        (out / "competitor_1_rendered.md").write_text(
+            "# Webinar schedule\n" + "Accessible rendered content " * 30)
+        (out / "competitor_1_browser.json").write_text(
+            json.dumps({"summary": {"items": []}}))
+        return SimpleNamespace(returncode=0, stderr="")
+    monkeypatch.setattr(c.subprocess, "run", fake_run)
+    c.recover()
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["pages"][0]["browser_status"] == "captured"
+    assert manifest["pages"][0]["browser_export_errors"] == []
+    assert manifest["pages"][0]["rendered_characters"] > 200
