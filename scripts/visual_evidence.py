@@ -239,6 +239,7 @@ def visual_analysis(item):
 
 
 def main():
+    OUT.mkdir(parents=True, exist_ok=True)
     data_path = ROOT / "competitor_evidence.json"
     data = json.loads(data_path.read_text(encoding="utf-8"))
     candidates = select_pages(data)
