@@ -215,6 +215,21 @@ def main():
         html = (ROOT / source["html_file"]).read_text(
             encoding="utf-8", errors="replace")
         details = links_from_html(html, source["url"])
+        # SiteOne browser export is supplementary: retain linked-media URLs,
+        # never claim the video was fetched or the media was decoded.
+        rendered_path = ROOT / "step3_structure" / (
+            source["stem"] + "_rendered.md")
+        rendered_links = []
+        if rendered_path.is_file():
+            rendered_text = rendered_path.read_text(
+                encoding="utf-8", errors="replace")
+            for candidate in re.findall(r"https://[^\\s<>\\)\\]\\\"']+", rendered_text):
+                candidate = candidate.rstrip(".,;")
+                if is_video_host(candidate) and candidate not in rendered_links:
+                    rendered_links.append(candidate[:900])
+                if len(rendered_links) >= 10:
+                    break
+        details["rendered_markdown_video_urls"] = rendered_links
         entry = {**source, **details, "transcript_status": "not_requested",
                  "source_html_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
                  "html_source": "previously archived SiteOne competitor capture"
@@ -223,12 +238,18 @@ def main():
         # A publisher's directly-linked transcript/track can add information
         # missing from thin page content, but no full-video downloads are made.
         video_context = (is_video_host(source["url"]) or details["embed_count"] > 0
-                         or bool(details["video_schema"]))
+                         or bool(details["video_schema"]) or bool(rendered_links))
+        # Exclude global navigation/script text when deciding if the video
+        # needs publisher text for a substantive comparison.
+        content_soup = BeautifulSoup(html, "html.parser")
+        for tag in content_soup.select("script,style,nav,header,footer,noscript"):
+            tag.decompose()
+        main_area = content_soup.select_one("main, article") or content_soup.body or content_soup
+        main_text_chars = len(main_area.get_text(" ", strip=True))
+        entry["static_main_text_characters"] = main_text_chars
         needs_context = video_context and (
             source["page_status"] in ("insufficient_html", "conversion_failed")
-            or (source["page_status"] == "captured"
-                and len(BeautifulSoup(
-                    html, "html.parser").get_text(" ", strip=True)) < 1000))
+            or (source["page_status"] == "captured" and main_text_chars < 1000))
         for link in details["caption_links"]:
             qid = source["query_id"]
             if not needs_context:
