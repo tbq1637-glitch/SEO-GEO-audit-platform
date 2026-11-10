@@ -6,6 +6,8 @@ public publisher-supplied .vtt/.srt/.txt tracks are used. Video evidence never
 fills an HTML competitor slot. No AI or paid search API calls.
 """
 import json
+import hashlib
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -159,6 +161,10 @@ def main():
     snapshot = json.loads((ROOT / "google_serp.json").read_text(encoding="utf-8"))
     captured = json.loads((ROOT / "competitor_evidence.json").read_text(encoding="utf-8"))
     results = {"version": 1, "sources": [], "query_video_results": {},
+               "checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+               "search_snapshot_at_utc": snapshot.get("searched_at_utc"),
+               "target_url": snapshot.get("target_url"),
+               "cache_policy": "Reuse existing captured HTML in this audit only; no cross-run video/transcript cache.",
                "transcripts_attempted": 0, "transcripts_captured": 0,
                "max_transcripts_total": MAX_TRANSCRIPTS,
                "max_transcripts_per_query": MAX_TRANSCRIPT_PER_QUERY,
@@ -198,7 +204,11 @@ def main():
         html = (ROOT / source["html_file"]).read_text(
             encoding="utf-8", errors="replace")
         details = links_from_html(html, source["url"])
-        entry = {**source, **details, "transcript_status": "not_requested"}
+        entry = {**source, **details, "transcript_status": "not_requested",
+                 "source_html_sha256": hashlib.sha256(html.encode("utf-8")).hexdigest(),
+                 "html_source": "previously archived SiteOne competitor capture"
+                                if source["stem"] != "target" else "STEP 1 target HTML",
+                 "checked_at_utc": results["checked_at_utc"]}
         # A publisher's directly-linked transcript/track can add information
         # missing from thin page content, but no full-video downloads are made.
         video_context = (is_video_host(source["url"]) or details["embed_count"] > 0
