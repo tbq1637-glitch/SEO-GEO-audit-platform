@@ -20,7 +20,7 @@ This file is the canonical record of functional changes. Entries distinguish imp
 - Strengthen STEP 5 instructions to restore **source-grounded implementation detail**: concrete suggested English copy (title/intro/FAQ where supported), page-specific changes, explicit verification/acceptance checks, platform-specific robots/canonical/redirect guidance when applicable, and real-launch approval prerequisites. Do not invent unknowns to meet formatting goals.
 
 ### Validation and remaining limitations
-- Focused no-API tests cover customer-journey diversity, video-priority handling, multiple URLs on one domain, SiteOne MarkdownExporter failure recognition, correct CLI flags in target/competitor browser recovery, and post-browser quota/report consistency.
+- Focused no-API tests **passed** in GitHub Actions Offline Structure Integration Tests #33 (2026-11-10): customer-journey diversity, video-priority handling, multiple URLs on one domain, SiteOne MarkdownExporter failure recognition, correct CLI flags in target/competitor browser recovery, and post-browser quota/report consistency.
 - Browser export recovery and the improved report instructions **still require a new live end-to-end acceptance run**. We have not claimed that previously blocked Facebook/YouTube pages are now accessible or that actual AI citations were checked.
 - Q5/video SERP result suitability and direct-competitor role scoring are deferred for separate design discussion. The existing text/visual analysis limits remain otherwise intact.
 - Changes are on `v2-search-competitiveness` only; do not merge into `main` before the user accepts the new results.
