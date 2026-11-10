@@ -24,15 +24,41 @@ def test_seven_candidates_choose_five_diverse_questions():
     assert len(set(x["query"] for x in candidates)) == 5
 
 
+def test_journey_stage_diversity_when_all_searches_are_informational():
+    stages = ["understand", "discover", "evaluate", "participate",
+              "practical", "understand", "discover"]
+    candidates = plan_candidates()
+    for candidate, stage in zip(candidates, stages):
+        candidate["intent"] = "informational"
+        candidate["journey_stage"] = stage
+        candidate["expected_result_type"] = "webpage"
+    selected = automated.choose_queries({"queries": candidates}, {})
+    assert len(selected) == 5
+    assert {x["journey_stage"] for x in selected} == set(stages[:5])
+
+
+def test_video_only_candidate_is_lower_priority_for_html_competitor_audit():
+    candidates = plan_candidates()
+    stages = ["understand", "discover", "evaluate", "participate",
+              "practical", "understand", "practical"]
+    for candidate, stage in zip(candidates, stages):
+        candidate["journey_stage"] = stage
+        candidate["expected_result_type"] = "webpage"
+    candidates[0]["expected_result_type"] = "video"
+    selected = automated.choose_queries({"queries": candidates}, {})
+    assert len(selected) == 5
+    assert candidates[0]["query"] not in [x["query"] for x in selected]
+
+
 def test_five_queries_execute_once_and_reuse_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(automated, "ROOT", tmp_path)
     monkeypatch.setenv("SERPAPI_API_KEY", "fake")
-    monkeypatch.setenv("SEARCH_BATCH_ID", "auto-five-v1")
+    monkeypatch.setenv("SEARCH_BATCH_ID", "auto-five-v2")
     profile = {"source_url": "https://target.example.org"}
     (tmp_path / "business_profile.json").write_text(json.dumps(profile))
     (tmp_path / "crawl_completeness.json").write_text(json.dumps({"status": "ok"}))
     (tmp_path / "search_intents.json").write_text(json.dumps({
-        "target": profile["source_url"], "planning_version": 2,
+        "target": profile["source_url"], "planning_version": 3,
         "queries": plan_candidates()
     }))
     monkeypatch.setattr(automated.search, "validate_evidence", lambda *_: None)
