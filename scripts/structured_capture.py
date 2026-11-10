@@ -171,6 +171,85 @@ def inspect_siteone_export(out, report_file, exit_code):
     return body, problems
 
 
+def reconcile_rendered_captures(manifest):
+    """Promote genuine rendered competitor text only into vacant query quotas.
+
+    The static stage already chose up to three captures per query. A late
+    rendered page is supplemental if the query quota was already filled.
+    This preserves both provenance and an honest 3-per-query maximum.
+    """
+    path = ROOT / "competitor_evidence.json"
+    if not path.is_file():
+        return
+    record = json.loads(path.read_text(encoding="utf-8"))
+    pages = record.get("pages", [])
+    quota = int(record.get("max_successful_pages_per_query", 3))
+    recovered = {
+        rec["stem"]: rec for rec in manifest.get("pages", [])
+        if rec.get("browser_status") == "captured"
+        and rec.get("rendered_markdown")
+    }
+    if not recovered:
+        return
+    counts = {}
+    for row in pages:
+        if row.get("status") == "captured":
+            key = row.get("query_id") or row.get("query")
+            counts[key] = counts.get(key, 0) + 1
+    recovered_sources = {}
+    for row in pages:
+        stem = row.get("capture_stem")
+        if stem not in recovered:
+            continue
+        if row.get("status") == "captured":
+            row["browser_rendered_supplement"] = recovered[stem]["rendered_markdown"]
+            continue
+        row["browser_rendered_supplement"] = recovered[stem]["rendered_markdown"]
+        key = row.get("query_id") or row.get("query")
+        if counts.get(key, 0) >= quota:
+            row["supplemental_not_in_quota"] = True
+            continue
+        source = EVIDENCE / (stem + "_rendered.md")
+        target_name = stem + ".md"
+        if not source.is_file():
+            continue
+        if stem not in recovered_sources:
+            # Archive the rendered result under the same stable naming
+            # convention expected by STEP 5's source-loader.
+            dest = ROOT / target_name
+            if not dest.is_file() or not dest.read_text(
+                    encoding="utf-8", errors="replace").strip():
+                shutil.copyfile(source, dest)
+            recovered_sources[stem] = target_name
+        row.update(
+            status="captured",
+            browser_recovered=True,
+            markdown_file=recovered_sources[stem],
+            source="SiteOne browser rendered DOM after static extraction failure",
+            extracted_characters=source.stat().st_size,
+        )
+        counts[key] = counts.get(key, 0) + 1
+
+    for item in record.get("per_query", []):
+        key = item.get("id") or item.get("query")
+        item["successes"] = counts.get(key, 0)
+        item["shortfall"] = max(0, quota - item["successes"])
+        item["met_target"] = item["successes"] >= quota
+        item["browser_recovered_in_quota"] = sum(
+            1 for row in pages if row.get("query_id") == key
+            and row.get("status") == "captured" and row.get("browser_recovered")
+        )
+    record["query_sample_count"] = sum(x.get("successes", 0)
+                                       for x in record.get("per_query", []))
+    unique_urls = {row.get("url") for row in pages
+                   if row.get("status") == "captured" and row.get("url")}
+    record["successful_pages"] = len(unique_urls)
+    record["unique_captured_urls"] = len(unique_urls)
+    record["rendered_recovered_sources"] = recovered_sources
+    path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+
+
 def recover():
     path = EVIDENCE / "manifest.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -237,6 +316,7 @@ def recover():
             rec["browser_error"] = type(exc).__name__
             rec["browser_elapsed_seconds"] = round(time.monotonic() - started, 2)
             log.write_text(type(exc).__name__ + "\n", encoding="utf-8")
+    reconcile_rendered_captures(manifest)
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print("Conditional rendering complete; screenshots remain disabled.")
 
