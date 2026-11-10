@@ -34,8 +34,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install local parsing and test dependencies
-        run: python -m pip install "pytest>=8,<10" "beautifulsoup4>=4.12,<5" "requests>=2.31,<3" "pydantic>=2,<3" "openai>=2,<3" "Pillow>=10,<12"
+        run: python -m pip install "pytest>=8,<10" "beautifulsoup4>=4.12,<5" "requests>=2.31,<3" "pydantic>=2,<3" "openai>=2,<3" "Pillow>=10,<12" "PyYAML>=6,<7"
       - name: Static syntax validation
         run: python -m compileall -q scripts tests
       - name: Offline functional tests
-        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py
+        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py tests/test_step5_workflow.py
