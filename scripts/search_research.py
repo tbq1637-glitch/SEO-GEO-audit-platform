@@ -41,6 +41,10 @@ class QueryCandidate(BaseModel):
         "navigational",
     ]
     reason: str
+    journey_stage: Literal[
+        "understand", "discover", "evaluate", "participate", "practical"
+    ]
+    expected_result_type: Literal["webpage", "mixed", "video"]
 
 
 class SearchPlan(BaseModel):
@@ -201,9 +205,19 @@ def create_plan(profile: dict, client: object, candidate_count: int = 5) -> list
         f"Return exactly {candidate_count} distinct natural English Google "
         "queries for genuine search intents relevant to the "
         "provided business profile. "
-        "Order proposals by relevance to the page's stated customer goal "
-        "and diversity of actual customer search intent. Do not let broad "
-        "informational searches crowd out service or participation searches. "
+        "Rank all seven candidates by business relevance and distinct "
+        "customer goals, not by whether sentences look informational. "
+        "For every query, classify journey_stage as understand (learn), "
+        "discover (find relevant provider, service or event), "
+        "evaluate (compare suitability), participate (register, book, join "
+        "or contact), or practical (eligibility, timing, cost or process). "
+        "Do not force an unsupported stage: use only facts established in "
+        "the page and keep the noindex/fictional status honest. "
+        "Also predict expected_result_type as webpage, mixed or video. "
+        "Prefer genuine HTML landing/service/event resources where they "
+        "are a relevant search intent, while keeping video-oriented "
+        "queries as candidates rather than treating video pages as "
+        "guaranteed HTML comparison sources. "
         "Prefer at least one informational query and one practical "
         "service/participation query where appropriate; do not "
         "force unrelated commercial intent. "
@@ -257,6 +271,8 @@ def create_plan(profile: dict, client: object, candidate_count: int = 5) -> list
             "id": f"Q{len(found) + 1}",
             "query": query,
             "intent": c.intent,
+            "journey_stage": c.journey_stage,
+            "expected_result_type": c.expected_result_type,
             "reason": str(c.reason)[:300],
             "status": "AI proposed; NOT yet checked in Google",
         })
