@@ -50,13 +50,17 @@ def links_from_html(html, source_url):
         url = node.get("src") or node.get("data") or ""
         if node.name == "video":
             url = url or (node.select_one("source[src]") or {}).get("src", "")
-        if not url:
+        # An HTML5 video can provide <track> evidence even when the media
+        # <source> is omitted from a template or injected by JavaScript.
+        # Its presence is evidence of video context, NOT of playable media.
+        if not url and node.name != "video":
             continue
-        absolute = urljoin(source_url, url)
+        absolute = urljoin(source_url, url) if url else ""
         if node.name != "video" and not is_video_host(absolute):
             continue
         titles.append({
             "kind": node.name, "url": absolute[:1000],
+            "has_media_url": bool(absolute),
             "title": text(node.get("title") or node.get("aria-label"), 300),
             "poster": str(node.get("poster", ""))[:600],
         })
