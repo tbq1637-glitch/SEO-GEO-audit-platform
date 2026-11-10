@@ -214,11 +214,6 @@ def main():
                 entry["transcript_status"] = ("page_text_sufficient" if video_context
                                               else "no_verified_video_context")
                 break
-            if qid == "TARGET":
-                # Target video transcripts require a separate content-owner
-                # decision; no unsolicited retrieval of linked media assets.
-                entry["transcript_status"] = "target_not_automatically_retrieved"
-                break
             if (results["transcripts_attempted"] >= MAX_TRANSCRIPTS
                     or transcripts_per_query.get(qid, 0) >= MAX_TRANSCRIPT_PER_QUERY):
                 entry["transcript_status"] = "budget_exhausted"
