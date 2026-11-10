@@ -122,7 +122,7 @@ jobs:
           import os
           from pathlib import Path
           evidence = Path("reports/siteone_page.md").read_bytes()
-          key = hashlib.sha256(b"auto-five-v1|" + evidence).hexdigest()
+          key = hashlib.sha256(b"auto-five-v2|" + evidence).hexdigest()
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write("digest=" + key + "\n")
           PY
@@ -134,13 +134,13 @@ jobs:
           path: |
             reports/search_intents.json
             reports/google_serp.json
-          key: auto-five-research-${{ steps.research_cache_key.outputs.digest }}
+          key: auto-five-v2-research-${{ steps.research_cache_key.outputs.digest }}
 
       - name: STEP 2-3 - Seven candidate intents and five Google searches
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
-          SEARCH_BATCH_ID: auto-five-v1
+          SEARCH_BATCH_ID: auto-five-v2
         run: python scripts/auto_four_searches.py
 
       - name: Save five-query research cache
@@ -150,7 +150,7 @@ jobs:
           path: |
             reports/search_intents.json
             reports/google_serp.json
-          key: auto-five-research-${{ steps.research_cache_key.outputs.digest }}
+          key: auto-five-v2-research-${{ steps.research_cache_key.outputs.digest }}
 
       - name: STEP 3 - Capture competitor page evidence
         run: |
