@@ -2,6 +2,23 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Screenshot timeout diagnosis and bounded fallback
+
+### Changed
+- Keep the existing SiteOne per-page browser timeout (35 seconds) and Python process timeout (100 seconds) unchanged. Desktop and Mobile remain separately evaluated.
+- After each SiteOne process exits or times out, inspect current-attempt screenshot JPEGs for stable size, full decoding, expected viewport width and reasonable dimensions. A validated image may be reused even if the SiteOne process timed out; neither a stale nor a corrupt image can be counted.
+- Save JSON diagnostics to each viewport's existing `siteone.log`: elapsed time, process exit/timeout, stderr/stdout tails where available, screenshot checks and image provenance. Exact internal SiteOne stall phase remains unknown without upstream traces.
+- Prefer competitor pages from distinct search queries. If no *complete* visual AI review was obtained, continue with the next already text-captured competitor URL, up to four competitor attempts to obtain two completed visual reviews.
+- Permit an explicitly single-viewport review if one screenshot is verified while the other fails, without pretending that both viewports were inspected.
+- Preserve all previously captured text/structure evidence regardless of visual screenshot outcome; no new Google searches or OpenAI retries are triggered by this fallback.
+
+### Explicit limitations and verification
+- Visual fallback uses existing competitor candidates only and does not expand STEP 3's current Google search budget or three-page text capture limit.
+- Up to five screenshot page attempts (one target + four competitors) can occur, each with up to two independent 100-second processes; budget and overall GitHub Actions timeout may still restrict execution.
+- Diagnostic data does not by itself establish the upstream SiteOne internal cause of a timeout.
+- Offline regression tests were added for timeout-recovered JPEG, corrupt and stale image rejection, candidate limits, and fallback stop conditions. Passing CI and end-to-end run are not yet confirmed.
+- The earlier 3,000 output-token cap and OpenAI completion-state check remain in effect.
+
 ## 2026-11-10 — Visual AI output completeness fix
 
 ### Changed
