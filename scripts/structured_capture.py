@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import shutil
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup, Tag
@@ -143,6 +144,33 @@ def assess():
     print(f"Structured evidence: {len(manifest['pages'])} captured pages; browser needed: {manifest['browser_needed']}")
 
 
+def inspect_siteone_export(out, report_file, exit_code):
+    """An exit code of zero is not proof that MarkdownExporter succeeded."""
+    problems = []
+    if report_file.is_file():
+        try:
+            details = json.loads(report_file.read_text(encoding="utf-8"))
+            for record in details.get("summary", {}).get("items", []):
+                if str(record.get("aplCode", "")).lower() == "markdownexporter":
+                    problems.append(str(record.get("text", ""))[:1000])
+        except (ValueError, OSError, TypeError) as exc:
+            problems.append("Invalid SiteOne JSON: " + type(exc).__name__)
+    else:
+        problems.append("SiteOne JSON missing")
+    body = out.read_text(encoding="utf-8", errors="replace") if out.exists() else ""
+    lowered = body[:1600].lower()
+    if any(flag in lowered for flag in (
+        "please log in to continue", "login to facebook",
+        "this browser is no longer supported", "please update your browser",
+    )):
+        problems.append("Possible access or browser compatibility page")
+    if exit_code != 0:
+        problems.append("SiteOne exited with code " + str(exit_code))
+    if len(body.strip()) < 200:
+        problems.append("No substantive rendered Markdown produced")
+    return body, problems
+
+
 def recover():
     path = EVIDENCE / "manifest.json"
     manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -169,31 +197,46 @@ def recover():
                 continue
         stem = rec["stem"]
         out = EVIDENCE / (stem + "_rendered.md")
+        report_file = EVIDENCE / (stem + "_browser.json")
+        export_dir = EVIDENCE / (stem + "_export")
+        export_dir.mkdir(parents=True, exist_ok=True)
         log = EVIDENCE / (stem + "_browser.log")
+        out.unlink(missing_ok=True)
         cmd = ["siteone-crawler", "--url=" + rec["url"], "--single-page",
                "--browser", "--browser-path=" + chrome,
                "--browser-wait=networkidle", "--browser-timeout=35",
                "--browser-workers=1", "--workers=1", "--max-reqs-per-sec=1",
+               "--markdown-export-dir=" + str(export_dir),
                "--markdown-export-single-file=" + str(out),
-               "--output-json-file=" + str(EVIDENCE / (stem + "_browser.json"))]
-        # SiteOne browser auto-scroll defaults to on: captures some lazy loading.
+               "--output-json-file=" + str(report_file)]
+        started = time.monotonic()
         try:
-            p = subprocess.run(cmd, capture_output=True, text=True, timeout=110, check=False)
-            log.write_text(f"returncode={p.returncode}\n" + p.stderr[-5000:] + "\n", encoding="utf-8")
-            text = out.read_text(encoding="utf-8", errors="replace") if out.exists() else ""
-            rec["browser_status"] = "captured" if p.returncode == 0 and len(text.strip()) >= 200 else "failed"
-            rec["rendered_characters"] = len(text)
-            rec["rendered_markdown"] = str(out) if rec["browser_status"] == "captured" else None
+            p = subprocess.run(cmd, capture_output=True, text=True,
+                               timeout=110, check=False)
+            body, problems = inspect_siteone_export(out, report_file, p.returncode)
+            rec["browser_status"] = "captured" if not problems else "failed"
+            rec["browser_elapsed_seconds"] = round(time.monotonic() - started, 2)
+            rec["rendered_characters"] = len(body)
+            rec["browser_export_errors"] = problems
+            rec["rendered_markdown"] = str(out) if not problems else None
+            log.write_text(
+                "returncode=" + str(p.returncode) + "\n"
+                + "export_errors=" + json.dumps(problems) + "\n"
+                + p.stderr[-6000:] + "\n", encoding="utf-8")
             base_file = ROOT / (stem + ".md") if stem != "target" else ROOT / "siteone_page.md"
-            static_size = len(base_file.read_text(encoding="utf-8", errors="replace")) if base_file.exists() else 0
+            static_size = len(base_file.read_text(
+                encoding="utf-8", errors="replace")) if base_file.exists() else 0
             rec["static_markdown_characters"] = static_size
-            rec["content_gain_chars"] = len(text) - static_size if rec["browser_status"] == "captured" else None
-            rec["preferred_for_analysis"] = rec["rendered_markdown"] if rec["browser_status"] == "captured" and len(text) > static_size else str(base_file)
+            rec["content_gain_chars"] = len(body) - static_size if not problems else None
+            rec["preferred_for_analysis"] = (str(out) if not problems and len(body) > static_size
+                                              else str(base_file))
             if stem == "target":
                 manifest["target_preferred_for_analysis"] = rec["preferred_for_analysis"]
         except (OSError, subprocess.TimeoutExpired) as exc:
             rec["browser_status"] = "failed"
             rec["browser_error"] = type(exc).__name__
+            rec["browser_elapsed_seconds"] = round(time.monotonic() - started, 2)
+            log.write_text(type(exc).__name__ + "\n", encoding="utf-8")
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print("Conditional rendering complete; screenshots remain disabled.")
 
