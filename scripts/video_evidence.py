@@ -199,6 +199,17 @@ def main():
                         "query_id": "TARGET", "page_status": "target",
                         "html_file": "target_source.html"})
 
+    # Use AI's query-media hypothesis only for ordering the small text-track
+    # budget. Actual SERP/media evidence remains authoritative.
+    media_by_query = {
+        group.get("id"): group.get("expected_result_type", "webpage")
+        for group in snapshot.get("groups", [])
+    }
+    media_rank = {"video": 0, "mixed": 1, "webpage": 2}
+    sources.sort(key=lambda entry: (
+        -1 if entry["query_id"] == "TARGET" else
+        media_rank.get(media_by_query.get(entry["query_id"]), 2)
+    ))
     attempted_urls, transcripts_per_query = set(), {}
     for source in sources:
         html = (ROOT / source["html_file"]).read_text(
