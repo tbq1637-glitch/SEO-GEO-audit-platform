@@ -16,9 +16,9 @@ def test_selection_prefers_distinct_queries(monkeypatch):
         {"status": "captured", "url": "https://d.org/x", "query": "Q4", "position": 1},
     ]}
     pages = m.select_pages(data)
-    assert len(pages) == 3
+    assert len(pages) == 5
     assert pages[0]["kind"] == "target"
-    assert set(p["query"] for p in pages[1:]) == {"Q1", "Q3"}
+    assert set(p["query"] for p in pages[1:]) == {"Q1", "Q3", "Q4"}
 
 
 def test_selection_does_not_fabricate_uncaptured_competitors(monkeypatch):
