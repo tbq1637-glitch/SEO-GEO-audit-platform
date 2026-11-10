@@ -165,6 +165,44 @@ def main():
     if not competitor_text_keys:
         raise RuntimeError("No captured static or rendered competitor text")
 
+    # Video evidence is supplemental. Metadata never substitutes for
+    # reviewed webpage text, and a published transcript is clearly labelled.
+    video_path = ROOT / "step3_video/video_manifest.json"
+    if video_path.is_file():
+        videos = json.loads(video_path.read_text(encoding="utf-8"))
+        evidence["video_evidence"] = {
+            "source": "SERP video metadata, publisher HTML, and optional public tracks",
+            "not_video_viewing_or_transcription": True,
+            "cannot_fill_html_quota": True,
+            "transcripts_captured": videos.get("transcripts_captured", 0),
+            "transcripts_attempted": videos.get("transcripts_attempted", 0),
+            "query_video_results": {
+                key: items[:10] for key, items in
+                videos.get("query_video_results", {}).items()
+            },
+            "pages": [],
+        }
+        for item in videos.get("sources", [])[:35]:
+            entry = {
+                "url": item.get("url"), "stem": item.get("stem"),
+                "query_id": item.get("query_id"),
+                "embed_count": item.get("embed_count"),
+                "embeds": item.get("embeds", [])[:6],
+                "video_schema": item.get("video_schema", [])[:5],
+                "caption_links": item.get("caption_links", [])[:5],
+                "metadata": item.get("metadata", {}),
+                "transcript_status": item.get("transcript_status"),
+                "transcript_error": item.get("transcript_error"),
+            }
+            if item.get("transcript_status") == "captured":
+                p = ROOT / "step3_video" / (item.get("stem", "") + "_publisher_transcript.txt")
+                if p.is_file():
+                    entry["publisher_transcript_sample"] = spaced_markdown(
+                        p.read_text(encoding="utf-8", errors="replace"),
+                        budget=5000)
+                    entry["transcript_source_url"] = item.get("transcript_source_url")
+            evidence["video_evidence"]["pages"].append(entry)
+
     visual_manifest = ROOT / "step4/visual/visual_manifest.json"
     if visual_manifest.is_file():
         visual = json.loads(visual_manifest.read_text(encoding="utf-8"))
@@ -203,6 +241,13 @@ def main():
                     "Give per-query comparisons and cross-query competitor patterns; "
                     "explicitly report coverage shortfalls and deduplicated URLs. "
                     "Do not treat sampled source passages as full-page evidence. "
+                    "Video SERP rows, publisher metadata and verified public "
+                    "transcripts are different evidence types. Never claim you "
+                    "watched, downloaded, or analysed full video content based "
+                    "on title/snippet/VideoObject alone. Never count video "
+                    "metadata as one of the three HTML competitors per query. "
+                    "When publisher transcripts are available, cite their "
+                    "actual source URL and mark whether text was sampled. "
                     "Keep static versus browser-rendered sources separate, and "
                     "inspect section structure including FAQ, tables, links, and metadata. "
                     "Do not mistake missing/excluded content for absence on the website. "
