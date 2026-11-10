@@ -2,6 +2,29 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Conditional video metadata and publisher transcript evidence (development)
+
+### Added
+- `scripts/video_evidence.py` collects Google organic **video result metadata** (title, snippet, URL, query and position) without downloading video media or pretending to know its content.
+- From the original, already-collected HTML, preserve video/iframe embeds, available poster/accessible labels, published `VideoObject` fields, basic social-video metadata, and explicitly linked captions/transcript files. Recognize linked video URLs found in SiteOne's optionally rendered Markdown after conditional browser recovery.
+- If a relevant publisher page contains a video and lacks substantial main-page explanation, optionally retrieve **only publicly and directly linked** .vtt/.srt/.txt content (bounded 120 KB, HTTPS/public DNS, no redirects). Save source URLs, language/kind where supplied, capture time, source HTML SHA-256, transcript status, and full text if obtained.
+- Cap direct text-track attempts at **one per query and three per audit**. No YouTube caption scraping, complete video/audio download, speech-to-text, frame decoding, or additional OpenAI/SerpApi call.
+- Prioritize eligible text tracks from pages associated with predicted video/mixed search intents, then other pages; this is only an evidence-budget ordering heuristic, not an asserted real search ranking or a video relevancy score.
+- STEP 5 now receives bounded, source-labelled video evidence, distinct from completed HTML competitor samples, and may mention what a verified publisher transcript actually says without claiming video playback.
+- Add offline tests for video metadata, native schema/track extraction, transcript limits, unsafe or non-text URLs, no model/search calls, video host separation from HTML quota and SiteOne-rendered video links.
+
+### Changed
+- Distinct video-platform SERP URLs (YouTube, Vimeo etc.) remain separate results, but are tagged `video_reference` and do **not** count toward three successfully captured HTML pages per query. Subsequent eligible HTML URLs are considered normally.
+- Ensure the video module runs after optional SiteOne DOM recovery so recovered Markdown links can be recorded.
+- Refine automatic 7→5 search question selection: business-relevance order from AI remains primary, choose diverse customer-journey stages, and prefer ordinary/mixed webpage evidence to video-only predictions **within the same stage** rather than excluding video-only topics categorically.
+- This run records video evidence source/capture dates and hashes but does **not** create an uncontrolled cross-workflow cache. Existing Google snapshot caching and exact-URL reuse remain intact.
+
+### Validation / limitations
+- **Offline Structure Integration Tests #43: Success** (2026-11-10), including the new video safety and provenance tests.
+- Live mixed-content website and a valid published-caption test are still required before claiming real-world transcript extraction works.
+- YouTube and other platform search results may offer only titles/snippets; missing subtitle links, restricted APIs and publisher access controls remain genuine coverage limitations.
+- `main` is unchanged; modifications are confined to `v2-search-competitiveness`. The real Google and AI citation workflows, comprehensive video understanding and automatic video-to-text conversion are not introduced.
+
 ## 2026-11-10 — Competitor evidence fidelity, customer-journey planning and browser export recovery
 
 ### Confirmed source and findings
