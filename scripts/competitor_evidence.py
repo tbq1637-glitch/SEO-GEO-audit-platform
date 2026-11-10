@@ -149,7 +149,7 @@ def main():
         query_id = group.get("id") or f"Q{group_index}"
         query = group.get("query", "")
         group_successes = group_attempts = 0
-        seen_hosts = set()
+        seen_urls_in_query = set()
         for result in group.get("results", [])[:MAX_ATTEMPTS_PER_QUERY]:
             url = str(result.get("url", ""))
             host = (urlsplit(url).hostname or "").lower()
@@ -169,12 +169,12 @@ def main():
                 row.update(status="unresolved_url", reason=reason)
             elif host == target_host:
                 row["status"] = "target_site"
-            elif host in seen_hosts:
-                row["status"] = "duplicate_domain_in_query"
+            elif url in seen_urls_in_query:
+                row["status"] = "duplicate_url_in_query"
             else:
-                # Distinct domains inside a query improve coverage;
-                # across queries, identical URLs reuse saved evidence.
-                seen_hosts.add(host)
+                # Exact same URL is deduplicated, but distinct pages on the same
+                # host remain eligible: domain equality is NOT content equality.
+                seen_urls_in_query.add(url)
                 cached = fetched.get(url)
                 if cached is not None:
                     row.update({
