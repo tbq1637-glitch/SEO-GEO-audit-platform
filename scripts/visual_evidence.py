@@ -128,18 +128,31 @@ def visual_analysis(item):
         res = OpenAI(timeout=150, max_retries=0).responses.create(
             model=os.getenv("VISUAL_AUDIT_MODEL", "gpt-5-mini"),
             input=[{"role": "user", "content": inputs}],
-            max_output_tokens=1100,
+            max_output_tokens=3000,
         )
-        report = res.output_text.strip()
+        report = (res.output_text or "").strip()
+        usage = getattr(res, "usage", None)
+        usage_data = {"input_tokens": getattr(usage, "input_tokens", None),
+                      "output_tokens": getattr(usage, "output_tokens", None)}
+        response_status = getattr(res, "status", None)
+        incomplete_details = getattr(res, "incomplete_details", None)
+        reason = getattr(incomplete_details, "reason", None)
+        details = {"response_status": response_status,
+                   "incomplete_reason": reason, "usage": usage_data,
+                   "model": os.getenv("VISUAL_AUDIT_MODEL", "gpt-5-mini")}
+        if response_status != "completed" or incomplete_details is not None:
+            # Keep partial evidence for diagnosis, but do not send it to STEP 5
+            # as if the visual review were complete.
+            if report:
+                partial = OUT / (item["id"] + "_visual_review_PARTIAL.md")
+                partial.write_text(report + "\n", encoding="utf-8")
+                details["partial_file"] = str(partial)
+            return {"status": "incomplete", **details}
         if not report:
-            raise ValueError("empty model output")
+            return {"status": "failed", "reason": "empty_model_output", **details}
         name = item["id"] + "_visual_review.md"
         (OUT / name).write_text(report + "\n", encoding="utf-8")
-        usage = getattr(res, "usage", None)
-        return {"status": "analysed", "file": str(OUT / name),
-                "model": os.getenv("VISUAL_AUDIT_MODEL", "gpt-5-mini"),
-                "usage": {"input_tokens": getattr(usage, "input_tokens", None),
-                          "output_tokens": getattr(usage, "output_tokens", None)}}
+        return {"status": "analysed", "file": str(OUT / name), **details}
     except Exception as exc:
         return {"status": "failed", "reason": type(exc).__name__}
 
