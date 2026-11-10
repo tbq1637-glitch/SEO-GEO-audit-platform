@@ -16,7 +16,7 @@ This file is the canonical record of functional changes. Entries distinguish imp
 - Visual fallback uses existing competitor candidates only and does not expand STEP 3's current Google search budget or three-page text capture limit.
 - Up to five screenshot page attempts (one target + four competitors) can occur, each with up to two independent 100-second processes; budget and overall GitHub Actions timeout may still restrict execution.
 - Diagnostic data does not by itself establish the upstream SiteOne internal cause of a timeout.
-- Offline regression tests were added for timeout-recovered JPEG, corrupt and stale image rejection, candidate limits, and fallback stop conditions. Passing CI and end-to-end run are not yet confirmed.
+- Offline regression tests for timeout-recovered JPEG, corrupt/stale image rejection, candidate limits and fallback conditions **passed** in GitHub Actions Offline Structure Integration Tests #15 (2026-11-10). Actual screenshot timeout recovery in a live workflow remains unverified.
 - The earlier 3,000 output-token cap and OpenAI completion-state check remain in effect.
 
 ## 2026-11-10 — Visual AI output completeness fix
