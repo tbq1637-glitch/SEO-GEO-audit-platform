@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
-from competitor_evidence import eligible, fetch_html
+from competitor_evidence import eligible
 
 ROOT = Path("reports")
 OUT = ROOT / "step3_video"
@@ -201,15 +201,18 @@ def main():
         entry = {**source, **details, "transcript_status": "not_requested"}
         # A publisher's directly-linked transcript/track can add information
         # missing from thin page content, but no full-video downloads are made.
-        needs_context = (source["page_status"] in ("insufficient_html",
-                                                     "conversion_failed")
-                         or (source["page_status"] == "captured" and
-                             details["embed_count"] and len(BeautifulSoup(
-                                 html, "html.parser").get_text(" ", strip=True)) < 1000))
+        video_context = (is_video_host(source["url"]) or details["embed_count"] > 0
+                         or bool(details["video_schema"]))
+        needs_context = video_context and (
+            source["page_status"] in ("insufficient_html", "conversion_failed")
+            or (source["page_status"] == "captured"
+                and len(BeautifulSoup(
+                    html, "html.parser").get_text(" ", strip=True)) < 1000))
         for link in details["caption_links"]:
             qid = source["query_id"]
             if not needs_context:
-                entry["transcript_status"] = "page_text_sufficient"
+                entry["transcript_status"] = ("page_text_sufficient" if video_context
+                                              else "no_verified_video_context")
                 break
             if qid == "TARGET":
                 # Target video transcripts require a separate content-owner
