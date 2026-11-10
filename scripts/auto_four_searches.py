@@ -28,10 +28,11 @@ def save(name, value):
 
 
 def choose_queries(plan, profile):
-    """Pick five AI-ranked customer-journey intents, avoiding video-only bias.
+    """Preserve AI relevance order, with journey coverage and media context.
 
-    This is a selection heuristic over AI-authored classifications, not an
-    invented estimate of Google demand or actual SERP media composition.
+    Input ordering is the model's relevance ranking. A webpage is preferred
+    over a video-only result prediction *within the same journey stage*;
+    media type cannot override the relevance ordering of every other stage.
     """
     unique, seen = [], set()
     for candidate in plan["queries"]:
@@ -40,32 +41,35 @@ def choose_queries(plan, profile):
             seen.add(query.casefold())
             unique.append({**candidate, "query": query})
     if len(unique) < CANDIDATES:
-        raise RuntimeError("Seven distinct, safe candidate queries required")
+        raise RuntimeError("Seven distinct safe candidate queries required")
 
-    chosen, seen_stages = [], set()
-    # Seek broad customer-journey coverage before redundant queries. Prefer
-    # usable HTML or mixed search evidence over a video-only prediction.
-    for media in ("webpage", "mixed", "video"):
-        for candidate in unique:
-            if len(chosen) == SELECTED:
-                break
-            stage = candidate.get("journey_stage") or candidate.get("intent", "")
-            if (candidate.get("expected_result_type", "webpage") == media
-                    and stage and stage not in seen_stages):
-                chosen.append(candidate)
-                seen_stages.add(stage)
-    # Fill with relevant remaining entries in their original AI ranked order,
-    # giving webpage-oriented candidates the first opportunity.
-    for media in ("webpage", "mixed", "video"):
-        for candidate in unique:
-            if len(chosen) == SELECTED:
-                break
-            if candidate not in chosen and candidate.get(
-                    "expected_result_type", "webpage") == media:
-                chosen.append(candidate)
-    if len(chosen) != SELECTED:
+    # Group by customer-journey stage while preserving the rank of its
+    # first appearance in the AI's ordered proposal.
+    grouped = {}
+    for candidate in unique:
+        stage = candidate.get("journey_stage") or candidate.get("intent") or "unknown"
+        grouped.setdefault(stage, []).append(candidate)
+
+    selected = []
+    for options in grouped.values():
+        # For the SAME user goal, prefer useful HTML or mixed evidence if
+        # available; do not discard an otherwise unique video-only goal.
+        choice = next(
+            (x for x in options if x.get("expected_result_type") != "video"),
+            options[0])
+        selected.append(choice)
+        if len(selected) >= SELECTED:
+            break
+
+    # Fill remaining slots by their original AI relevance order.
+    for candidate in unique:
+        if len(selected) >= SELECTED:
+            break
+        if candidate not in selected:
+            selected.append(candidate)
+    if len(selected) != SELECTED:
         raise RuntimeError("Exactly five search queries required")
-    return chosen
+    return selected
 
 
 def main():
@@ -78,7 +82,7 @@ def main():
         if not os.getenv("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY missing for seven-query planning")
         plan = {"target": profile["source_url"], "planning_version": 3,
-                "selection_method": "AI-ranked customer journey stages, prefer webpage evidence, pick five",
+                "selection_method": "AI relevance ranked, diverse journey stages; media preference within same stage",
                 "queries": search.create_plan(
                     profile, search.create_client(), candidate_count=CANDIDATES)}
     chosen = choose_queries(plan, profile)
