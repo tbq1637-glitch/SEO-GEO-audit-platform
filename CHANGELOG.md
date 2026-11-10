@@ -2,6 +2,22 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Run #25 video test fixture compatibility repair
+
+### Diagnosis
+- Run #25 stopped in the **STEP 2-3 Offline safety tests** step: 37 tests passed and two video tests failed, before any of the five SerpApi Google searches or STEP 5 final report.
+- Both failures traced to a synthetic `<video><track ...></video>` tag without a `src` or nested media `<source>`. The original metadata reader skipped the whole video node, so the linked publisher caption was not treated as video-context evidence even though the track URL was present.
+- This is a real extraction-coverage corner case, not proof that the public caption endpoint is unavailable.
+
+### Changed
+- Retain `<video>` context when its media source URL is absent, including the explicit `has_media_url=false` marker and any caption tracks. Preserve the distinction between a video element, a playable video, and a transcript actually read.
+- Do not increase text-track budgets, enable video/audio downloads, or count media metadata as an HTML comparator.
+
+### Validation
+- Offline Structure Integration Tests **#44 succeeded** on the patched V2 commit; syntax and existing regression tests pass.
+- Run #25 did **not** reach the full audit or produce a new integrated comparison report. A fresh workflow dispatch on the new commit is required; rerunning jobs from #25 would use the old failed revision.
+- Only `v2-search-competitiveness` was changed; `main` remains unchanged.
+
 ## 2026-11-10 — Conditional video metadata and publisher transcript evidence (development)
 
 ### Added
