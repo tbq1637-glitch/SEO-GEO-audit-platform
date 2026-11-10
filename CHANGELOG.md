@@ -2,6 +2,21 @@
 
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
+## 2026-11-10 — Visual AI output completeness fix
+
+### Changed
+- Raise the per-page image-based visual review output cap from 1,100 to 3,000 tokens. This is an API output ceiling, not a monetary quota or guaranteed consumption.
+- Inspect the Responses API `status` and `incomplete_details` before recording a review as `analysed`.
+- Preserve partial model text in a separate `*_PARTIAL.md` diagnostic file if the response is incomplete; do **not** pass it to STEP 5 as a completed visual analysis.
+- Store model response status, incomplete reason and input/output token usage in the existing visual manifest.
+
+### Explicitly unchanged
+- Keep SiteOne `--browser-timeout=35` and Python `subprocess.run(timeout=100)` exactly as before, pending investigation of screenshot timeouts.
+- Screenshot capture and retry logic have **not** been repaired or altered.
+
+### Verification
+- Implementation committed to V2; real API execution and the full audit are **not yet validated**.
+
 ## 2026-11-10 — Selective screenshot evidence and visual AI analysis (development)
 
 ### Added
