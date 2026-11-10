@@ -131,3 +131,24 @@ def test_video_platform_results_do_not_consume_html_capture_attempts(tmp_path, m
     assert result["attempted_pages"] == 15
     assert not any("youtube" in url for url in called)
     assert sum(x["status"] == "video_reference" for x in result["pages"]) == 10
+
+
+def test_rendered_siteone_media_url_is_metadata_not_video_content(tmp_path, monkeypatch):
+    monkeypatch.setattr(v, "ROOT", tmp_path)
+    monkeypatch.setattr(v, "OUT", tmp_path / "step3_video")
+    prepare_sources(tmp_path, count=1)
+    evidence = tmp_path / "step3_structure"
+    evidence.mkdir()
+    (evidence / "competitor_1_rendered.md").write_text(
+        "# Video resources\n[Watch](https://www.youtube.com/watch?v=ABC123)\n")
+    monkeypatch.setattr(v, "_fetch_published_text",
+                        lambda _: ("WEBVTT\n" + "Caption text " * 30, None))
+    v.main()
+    result = json.loads((tmp_path / "step3_video" / "video_manifest.json").read_text())
+    item = result["sources"][0]
+    assert item["rendered_markdown_video_urls"] == [
+        "https://www.youtube.com/watch?v=ABC123"
+    ]
+    assert item["source_html_sha256"]
+    assert result["search_snapshot_at_utc"] is None
+    assert "no cross-run" in result["cache_policy"]
