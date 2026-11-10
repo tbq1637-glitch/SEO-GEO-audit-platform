@@ -1,4 +1,5 @@
 import json, os, hashlib, html
+from fusion_api import call_fusion
 from pathlib import Path
 from openai import OpenAI
 
@@ -64,6 +65,32 @@ def spaced_markdown(text, budget=6000):
             "warning": "Sampled excerpts, not a complete page; use heading outline and do not infer absence."}
 
 
+def compact_siteone_scan(source, include_ai=False):
+    """Retain useful native checks while avoiding duplicate tables/stat dumps.
+
+    The original full SiteOne JSON files always remain in the GitHub artifact.
+    """
+    important_tables = ("seo", "seo-headings", "open-graph", "accessibility",
+                        "security", "headers", "redirects", "best-practices")
+    if include_ai:
+        important_tables += ("ai-seo",)
+    tables = source.get("tables") or {}
+    return {
+        "qualityScores": source.get("qualityScores"),
+        "summary": source.get("summary"),
+        "stats": source.get("stats"),
+        "results": source.get("results"),
+        "selected_native_tables": {
+            key: tables[key] for key in important_tables if key in tables
+        },
+        "retained_native_table_names": list(tables),
+        "evidence_limitations": (
+            "The complete original SiteOne JSON is archived. Tables omitted "
+            "from the model input may not be assumed empty or absent."
+        ),
+    }
+
+
 def main():
     evidence = {}
     for name in INPUTS:
@@ -74,6 +101,10 @@ def main():
                 evidence[name] = json.loads(p.read_text(encoding="utf-8"))
             else:
                 evidence[name] = p.read_text(encoding="utf-8", errors="replace")[:30000]
+    for name in ("seo.json", "step4/siteone_ai_seo.json"):
+        if name in evidence:
+            evidence[name] = compact_siteone_scan(
+                evidence[name], include_ai=name.startswith("step4/"))
     snapshot = evidence["google_serp.json"]
     competitors = evidence["competitor_evidence.json"]
     if len(snapshot.get("groups", [])) != 5:
@@ -234,11 +265,7 @@ def main():
     if cached.get("digest") == digest:
         report = cached["report"]
     else:
-        response = OpenAI(timeout=240, max_retries=0).responses.create(
-            model=os.getenv("FUSION_MODEL", "gpt-6.1-sol"),
-            reasoning={"effort": "high"},
-            input=[
-                {"role": "system", "content": (
+        system_prompt = (
                     "Create an evidence-grounded English SEO and GEO optimization report. "
                     "Separate SEO, GEO, shared issues, and competitive comparisons. "
                     "Use all five actual search queries and the query-specific captured competitors. "
@@ -282,13 +309,16 @@ def main():
                     "Keep score caveats, rejected unsupported upstream fixes, "
                     "and practical testing steps; do not replace concrete actions "
                     "with generic advice merely because the competitor comparison is long. "
-                )},
-                {"role": "user", "content": serialized}
-            ]
+                )
+        report = call_fusion(
+            client=OpenAI(timeout=300, max_retries=0),
+            model=os.getenv("FUSION_MODEL", "gpt-6.1-sol"),
+            system_prompt=system_prompt, serialized=serialized,
+            evidence=evidence,
+            diagnostics_file=ROOT / "step5_fusion_diagnostics.json",
+            timeout_seconds=int(os.getenv("FUSION_TIMEOUT_SECONDS", "300")),
+            max_attempts=int(os.getenv("FUSION_MAX_ATTEMPTS", "2")),
         )
-        report = response.output_text
-        if not report.strip():
-            raise RuntimeError("Fusion returned empty report")
         cached_file.write_text(json.dumps({"digest": digest, "report": report},
                                           ensure_ascii=False), encoding="utf-8")
     (ROOT / "SEO_GEO_COMBINED_REPORT.md").write_text(report, encoding="utf-8")
