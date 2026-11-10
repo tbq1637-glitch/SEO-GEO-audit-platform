@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   audit:
-    if: ${{ inputs.mode != 'step5_only' }}
+    if: ${{ inputs.mode == 'full' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
