@@ -318,6 +318,8 @@ jobs:
           path: reports
 
       - name: Validate downloaded evidence and record provenance
+        env:
+          EXPECTED_TARGET_URL: ${{ inputs.url }}
         run: python scripts/validate_fusion_replay.py local
 
       - name: Re-run STEP 5 fusion only with bounded diagnostics
