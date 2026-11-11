@@ -1,5 +1,13 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — Real archived Webinar content verification (offline)
+
+- Independently examined original `target_source.html` from GitHub Actions Run #33 (not a synthetic page). Source HTML contained one 647,197-character Google Sites `data-code` custom embed with 7,967 extracted candidate text characters and 19 H1–H4 headings, including the page's actual H1.
+- Confirmed **16/16 targeted fact-presence checks** in the archived publisher source: topic, date, AEDT time, Zoom delivery, free status, all three presenter names, event/clinic address, email, webpage telephone, 45-minute talk plus 15-minute Q&A, recording note, shopping-centre voucher, certificate condition, and exact Zoom registration URL from a source anchor. The extracted text is under the 40,000-character bound and is not truncated.
+- Recorded source facts, evidence boundaries, source-versus-poster telephone discrepancy, and next acceptance checks in `docs/GOOGLE_SITES_EVENT_CAPTURE_ACCEPTANCE.md` (commit `0ae377f`). The poster lists `1300 935 523` while the archived page lists `(02) 4733 0222`; do not silently reconcile them.
+- This confirms archived **source content extraction**, not independent truth of the event, link functionality, live rendering, search-engine visibility, or field-level propagation into a fresh end-to-end report. Do not present the 16/16 checks as full-site completeness.
+- No SiteOne/GEO source changes, no paid API audit, and no main-branch update were performed.
+
 ## 2026-11-11 — Google Sites embedded content supplemental recovery (V2 only)
 
 ### Confirmed diagnosis
