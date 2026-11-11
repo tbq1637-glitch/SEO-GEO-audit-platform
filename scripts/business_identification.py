@@ -60,6 +60,9 @@ def extract_page(url):
         r.text[:1_000_000], encoding="utf-8"
     )
 
+    from embedded_page_evidence import capture as capture_embedded
+    embedded = capture_embedded(r.text[:1_000_000], r.url, evidence_dir)
+
     # SiteOne browser fallback only for evidence that looks client-rendered.
     # Use the rendered Markdown as an additional source, never silently replace HTML.
     browser_note = "Not needed: static content appears readable"
@@ -143,6 +146,18 @@ def extract_page(url):
         "visible_text": norm(
             main.get_text(" ", strip=True)
         )[:20000],
+        "embedded_page_evidence": ({
+            "source_method": embedded["source_method"],
+            "native_scanner_results_unchanged": True,
+            "full_page_completeness_not_proven": True,
+            "items": [{
+                "h1": item["h1"],
+                "headings": item["headings"][:40],
+                "text": item["visible_candidate_text"][:18000],
+                "links": item["links"][:50],
+                "source": item["source"],
+            } for item in embedded["items"][:3]],
+        } if embedded else None),
         "browser_recovery_status": browser_note,
         "rendered_markdown_excerpt": rendered_excerpt,
         "extraction_note": (
