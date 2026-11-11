@@ -102,8 +102,25 @@ def main():
         and rendered_has_heading and not blocked
     )
 
+    # Native SEO/GEO output remains authoritative for crawler-visible fields.
+    # Embedded HTML is supplementary evidence with separate provenance.
+    embedded_file = OUT / "target_embedded_evidence.json"
+    embedded = {}
+    if embedded_file.is_file():
+        try:
+            embedded = json.loads(embedded_file.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            embedded = {}
+    embedded_items = embedded.get("items", []) if embedded.get("source_url") == URL else []
+    valid_embeds = [item for item in embedded_items
+                    if item.get("h1") and len(item.get("visible_candidate_text", "")) >= 400]
+    embedded_valid = bool(valid_embeds) and status == "200" and not blocked
+    embedded_length = sum(len(item["visible_candidate_text"]) for item in valid_embeds)
+
     if status != "200" or blocked:
         verdict = "INCOMPLETE - DO NOT USE FOR AI"
+    elif embedded_valid and (not text or len(text) < 400 or not title or not h1):
+        verdict = "CONTENT CAPTURED - GOOGLE SITES EMBED; NATIVE SEO DATA INCOMPLETE"
     elif browser_fallback_valid and (not text or len(text) < 400 or not title or not h1):
         verdict = "CONTENT CAPTURED - BROWSER FALLBACK; STATIC SEO DATA INCOMPLETE"
     elif not text:
@@ -119,10 +136,14 @@ def main():
         "url": URL,
         "http_status": status,
         "response_bytes": size,
-        "markdown_characters": max(len(text), rendered_characters) if browser_fallback_valid else len(text),
+        "markdown_characters": max(len(text), rendered_characters, embedded_length) if embedded_valid else (max(len(text), rendered_characters) if browser_fallback_valid else len(text)),
         "static_markdown_characters": len(text),
         "browser_markdown_characters": rendered_characters,
         "browser_fallback_valid": browser_fallback_valid,
+        "embedded_source_valid": embedded_valid,
+        "embedded_source_characters": embedded_length,
+        "embedded_source_h1": valid_embeds[0].get("h1", "") if embedded_valid else "",
+        "embedded_is_not_native_crawler_content": True,
         "title": title,
         "h1": h1,
         "challenge_suspected": blocked,
