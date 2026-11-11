@@ -163,6 +163,16 @@ def extract_page(url):
                 "headings": item["headings"][:40],
                 "text": item["visible_candidate_text"][:18000],
                 "links": item["links"][:50],
+                "sections": [
+                    {"id": section["id"], "headings": section["headings"],
+                     "text_excerpt": section["text"][:800]}
+                    for section in item["sections"][:30]
+                ],
+                "faqs": item["faqs"][:30],
+                "schedule_times": item["times"][:40],
+                "image_metadata": item["images"][:20],
+                "structure_counts": item["source_structure_counts"],
+                "source_capture_integrity": item["source_capture_integrity"],
                 "source": item["source"],
             } for item in embedded["items"][:3]],
         } if embedded else None),
