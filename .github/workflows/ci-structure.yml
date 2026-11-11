@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - v3-upstream-coverage
+      - v3-step5-comparison
       - v2-search-competitiveness
     paths:
       - 'scripts/structured_capture.py'
@@ -38,4 +39,4 @@ jobs:
       - name: Static syntax validation
         run: python -m compileall -q scripts tests
       - name: Offline functional tests
-        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py tests/test_step5_workflow.py
+        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py tests/test_step5_workflow.py tests/test_fusion_background.py
