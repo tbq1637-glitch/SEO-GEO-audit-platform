@@ -16,19 +16,6 @@ on:
         options:
           - landing_page
           - website
-      mode:
-        description: "Run entire audit, or reuse a past artifact for STEP 5 only"
-        required: true
-        type: choice
-        default: full
-        options:
-          - full
-          - step5_only
-      source_run_id:
-        description: "Only for step5_only: source Actions run ID (Run 26 default)"
-        required: false
-        type: string
-        default: "42764278546"
 
 permissions:
   contents: read
@@ -36,12 +23,11 @@ permissions:
 
 # Serialize tests using the same batch ID to reduce accidental duplicate searches.
 concurrency:
-  group: v2-search-${{ github.ref }}-${{ inputs.url }}-${{ inputs.mode }}
+  group: seo-geo-${{ github.ref }}-${{ inputs.url }}
   cancel-in-progress: false
 
 jobs:
   audit:
-    if: ${{ inputs.mode == 'full' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
@@ -286,61 +272,4 @@ jobs:
         with:
           name: seo-geo-audit-${{ github.run_number }}
           path: reports/
-          retention-days: 30
-
-  step5_only:
-    name: STEP 5 Only - Reuse verified prior audit artifact
-    if: ${{ inputs.mode == 'step5_only' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install report-only dependencies
-        run: python -m pip install "openai>=2.0,<3.0" "Markdown>=3.6,<4" "beautifulsoup4>=4.12,<5"
-
-      - name: Verify old GitHub audit run and source artifact
-        id: old_source
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-        run: python scripts/validate_fusion_replay.py remote
-
-      - name: Download preserved audit evidence (no new crawl)
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ inputs.source_run_id }}
-          name: seo-geo-audit-${{ steps.old_source.outputs.run_number }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: reports
-
-      - name: Validate downloaded evidence and record provenance
-        env:
-          EXPECTED_TARGET_URL: ${{ inputs.url }}
-        run: python scripts/validate_fusion_replay.py local
-
-      - name: Re-run STEP 5 fusion only with bounded diagnostics
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          FUSION_TIMEOUT_SECONDS: "300"
-          FUSION_MAX_ATTEMPTS: "2"
-        run: python scripts/fusion_report.py
-
-      - name: Render accessible human-readable HTML
-        run: python scripts/render_combined_report.py
-
-      - name: Upload replay report, errors and provenance
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: step5-only-replay-${{ github.run_number }}
-          path: |
-            reports/SEO_GEO_COMBINED_REPORT.md
-            reports/SEO_GEO_COMBINED_REPORT.html
-            reports/step5_fusion_diagnostics.json
-            reports/STEP5_REPLAY_PROVENANCE.json
-          if-no-files-found: warn
           retention-days: 30
