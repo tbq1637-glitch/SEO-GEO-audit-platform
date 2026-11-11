@@ -43,17 +43,17 @@ def capture(html, url, output_dir):
         # including huge inline image bytes in the AI-facing JSON.
         sections = []
         for section in body.select("section[id]")[:80]:
-            section_text = re.sub(r"\\s+", " ", section.get_text(" ", strip=True)).strip()
+            section_text = re.sub(r"\s+", " ", section.get_text(" ", strip=True)).strip()
             sections.append({
                 "id": str(section.get("id", ""))[:120],
-                "headings": [{"level": h.name, "text": re.sub(r"\\s+", " ", h.get_text(" ", strip=True)).strip()}
+                "headings": [{"level": h.name, "text": re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip()}
                              for h in section.select("h1,h2,h3,h4")[:30]],
                 "text": section_text[:20_000],
                 "text_truncated": len(section_text) > 20_000,
             })
         faqs = [
-            {"question": re.sub(r"\\s+", " ", q.get_text(" ", strip=True)).strip(),
-             "answer": re.sub(r"\\s+", " ", q.parent.get_text(" ", strip=True)).strip(),
+            {"question": re.sub(r"\s+", " ", q.get_text(" ", strip=True)).strip(),
+             "answer": re.sub(r"\s+", " ", q.parent.get_text(" ", strip=True)).strip(),
              "initially_open": q.parent.has_attr("open")}
             for q in body.select("details > summary")[:60]
         ]
@@ -69,7 +69,7 @@ def capture(html, url, output_dir):
                 "width": str(picture.get("width", ""))[:30],
                 "height": str(picture.get("height", ""))[:30],
             })
-        times = [re.sub(r"\\s+", " ", v.get_text(" ", strip=True)).strip()
+        times = [re.sub(r"\s+", " ", v.get_text(" ", strip=True)).strip()
                  for v in body.select("time")[:100]]
         counts = {
             "headings": len(body.select("h1,h2,h3,h4")),
