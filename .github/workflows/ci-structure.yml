@@ -11,6 +11,8 @@ on:
       - 'scripts/competitor_evidence.py'
       - 'scripts/crawl_completeness_audit.py'
       - 'scripts/business_identification.py'
+      - 'scripts/embedded_page_evidence.py'
+      - 'scripts/crawl_completeness_audit.py'
       - 'scripts/fusion_report.py'
       - 'scripts/geo_extended_diagnostics.py'
       - 'scripts/visual_evidence.py'
@@ -39,4 +41,4 @@ jobs:
       - name: Static syntax validation
         run: python -m compileall -q scripts tests
       - name: Offline functional tests
-        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py tests/test_step5_workflow.py tests/test_fusion_background.py
+        run: python -m pytest -q tests/test_competitor_evidence.py tests/test_five_query_pipeline.py tests/test_structured_capture.py tests/test_search_research.py tests/test_visual_evidence.py tests/test_fusion_replay.py tests/test_step5_workflow.py tests/test_fusion_background.py tests/test_embedded_page_evidence.py
