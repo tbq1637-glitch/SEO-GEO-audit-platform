@@ -62,4 +62,4 @@ def test_completeness_accepts_only_separately_labelled_embedded_source(tmp_path,
     assert verdict["embedded_is_not_native_crawler_content"] is True
     assert "GOOGLE SITES EMBED" in verdict["verdict"]
     assert verdict["h1"] == ""
-    search.validate_evidence({"brand": "Demo", "page_type": "landing_page"}, verdict)
+    search.validate_evidence({"brand": "Demo", "page_type": "landing_page", "source_url": crawl.URL}, verdict)
