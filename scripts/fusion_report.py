@@ -4,7 +4,7 @@ from pathlib import Path
 from openai import OpenAI
 
 ROOT = Path("reports")
-INPUTS = ["business_profile.json", "search_intents.json", "google_serp.json",
+INPUTS = ["business_profile.json", "target_embedded_evidence.json", "search_intents.json", "google_serp.json",
           "competitor_evidence.json", "seo.json", "geo.json",
           "step4/siteone_ai_seo.json", "step4/geo_perception.txt",
           "step4/geo_fix_preview.txt", "siteone_page.md"]
