@@ -27,10 +27,10 @@ def capture(html, url, output_dir):
         embedded = BeautifulSoup(raw, "html.parser")
         for unwanted in embedded.select("script, style, template, noscript, svg"):
             unwanted.decompose()
-        body = embedded.select_one("main") or embedded.body or embedded
-        heading = [re.sub(r"\\s+", " ", x.get_text(" ", strip=True)).strip()
+        body = embedded.body or embedded
+        heading = [re.sub(r"\s+", " ", x.get_text(" ", strip=True)).strip()
                    for x in body.select("h1, h2, h3, h4")[:70]]
-        text = re.sub(r"\\s+", " ", body.get_text(" ", strip=True)).strip()
+        text = re.sub(r"\s+", " ", body.get_text(" ", strip=True)).strip()
         if not text or not heading:
             continue
         links = []
@@ -44,9 +44,10 @@ def capture(html, url, output_dir):
             "source_html_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
             "embedded_html_characters": len(raw),
             "headings": heading,
-            "h1": next((x.get_text(" ", strip=True) for x in body.select("h1")), ""),
+            "h1": next((re.sub(r"\s+", " ", x.get_text(" ", strip=True)).strip() for x in body.select("h1")), ""),
             "visible_candidate_text": text[:40_000],
             "candidate_text_characters": len(text),
+            "content_truncated": len(text) > 40_000,
             "links": links,
             "limitations": (
                 "Attribute-embedded source text, not proof of search-engine indexing, "
