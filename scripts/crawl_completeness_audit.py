@@ -113,7 +113,11 @@ def main():
             embedded = {}
     embedded_items = embedded.get("items", []) if embedded.get("source_url") == URL else []
     valid_embeds = [item for item in embedded_items
-                    if item.get("h1") and len(item.get("visible_candidate_text", "")) >= 400]
+                    if item.get("h1")
+                    and len(item.get("visible_candidate_text", "")) >= 400
+                    and not item.get("content_truncated")
+                    and item.get("source_capture_integrity", {}).get(
+                        "complete_without_configured_truncation") is True]
     embedded_valid = bool(valid_embeds) and status == "200" and not blocked
     embedded_length = sum(len(item["visible_candidate_text"]) for item in valid_embeds)
 
@@ -144,6 +148,8 @@ def main():
         "embedded_source_characters": embedded_length,
         "embedded_source_h1": valid_embeds[0].get("h1", "") if embedded_valid else "",
         "embedded_is_not_native_crawler_content": True,
+        "embedded_structure_counts": valid_embeds[0].get("source_structure_counts", {}) if embedded_valid else {},
+        "embedded_capture_integrity": "pass" if embedded_valid else "not_verified",
         "title": title,
         "h1": h1,
         "challenge_suspected": blocked,
