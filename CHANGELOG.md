@@ -1,5 +1,24 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — Source-first semantic capture verification (V2 only)
+
+### Scope
+- The user's only comparison source is the public Google Sites activity page; the event poster is excluded from this acceptance and from all field reconciliation.
+- Prioritize content, semantic structure, links, source relevance and truncation checks before allowing downstream SEO/GEO recommendations. This does not imply pixel-exact live rendering or search-engine indexability.
+
+### Change and tests
+- Enhanced the conditional `scripts/embedded_page_evidence.py` sidecar to capture ordered section IDs/classes/headings/text, speaker article cards, FAQ question-answer/open states, timeline time elements, link references, image hashes/alt labels, native style/script counts, and per-source integrity metadata. Preserve raw HTML separately.
+- Strengthened `scripts/crawl_completeness_audit.py` to reject truncated supplementary content; strengthened STEP 1 business identification evidence to pass a bounded structural overview. The STEP 5 evidence loader already receives the full supplementary JSON sidecar.
+- Fixed whitespace normalization in section/FAQ/timetable extraction. No changes were made to SiteOne Crawler/GEO Optimizer sources, the search provider, the final model, or the STEP 5 high-reasoning prompt.
+- Independently inspected Run #33 archived HTML: one Google Sites custom embed, 7 sections, 19 headings, 3 speaker cards, 3 image elements, 3 FAQ items, 6 timeline `time` elements, and 12 links; 7,967 extracted candidate-text characters with no configured truncation.
+- GitHub Offline Structure Integration Tests **Run #69 succeeded: 62 tests passed**, including semantic structure retention and rejecting over-limit content. No paid end-to-end testing was launched.
+- Details and accepted evidence boundaries are documented in `docs/GOOGLE_SITES_EVENT_CAPTURE_ACCEPTANCE.md`.
+
+### Remaining gates
+- Full layout (CSS rendering, desktop/mobile, card/FAQ interactions, image display) requires an actual rendered-page inspection; semantic parsing and saved source are not equivalent to screenshot validation.
+- The next real V2 audit must verify that STEP 1, search planning and final STEP 5 report correctly use the captured event content. Do not claim completed end-to-end analysis or promote to `main` until this is verified.
+- `main` is unchanged.
+
 ## 2026-11-11 — Real archived Webinar content verification (offline)
 
 - Independently examined original `target_source.html` from GitHub Actions Run #33 (not a synthetic page). Source HTML contained one 647,197-character Google Sites `data-code` custom embed with 7,967 extracted candidate text characters and 19 H1–H4 headings, including the page's actual H1.
