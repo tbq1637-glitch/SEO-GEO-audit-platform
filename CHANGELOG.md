@@ -1,5 +1,21 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — Release candidate promotion from V2 to main
+
+### Release decision and evidence
+- V3 comparison branch completed full five-step audit in GitHub Actions Run #30 (success): five Google query groups, 15/15 query samples from 14 distinct captured competitor URLs, SiteOne browser recovery, video metadata processing, visual analysis and a completed high-reasoning STEP 5 report using OpenAI background polling.
+- V3 STEP 5-only replay Run #29 independently succeeded on preserved Run #26 evidence. Previous synchronous failures are retained in Runs #26 and #27 for provenance.
+- Subsequent workflow cleanup removed temporary `mode`, `source_run_id` and the STEP 5-only job, leaving the normal URL + scope interface. Offline Structure Integration Tests Run #54 passed (56 tests) after this cleanup.
+- No further paid end-to-end audit was run after the entrypoint cleanup. This is an explicit release validation limitation, not a claimed additional live test.
+- Existing SiteOne model-input compaction remains exactly as tested in V3; full source JSON remains archived. Its necessity and complete fidelity are not separately established, and no further trimming is part of this release.
+- The V2 development branch was aligned to the V3 accepted code at commit `9c8876b`. The pre-promotion main head was `1daac3b`; GitHub comparison showed the V2 head was ahead and not behind. This release is intended as a fast-forward of main, preserving the existing commit history.
+
+### Follow-up and deferred work
+- Keep the free CI workflow, the canonical full audit workflow and historical test evidence. Do not delete GitHub workflow histories just because experimental entrypoints were removed.
+- Publisher caption retrieval did not trigger in Run #30; real caption validation remains outstanding.
+- SiteOne repeated Facebook resource paths and complete losslessness of the model-facing SiteOne table selection remain separate review items, not release blockers.
+- Redundant V3 experiment branch refs may be removed after confirming they have no independent commits; leave a recoverable V2 development branch. Do not treat branch deletion as deletion of historical run artifacts.
+
 ## 2026-11-11 — V3 full-run acceptance and temporary dispatch cleanup
 
 ### Acceptance evidence
