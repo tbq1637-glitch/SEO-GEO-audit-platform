@@ -25,6 +25,9 @@ def capture(html, url, output_dir):
         if not isinstance(raw, str) or not (100 <= len(raw) <= 900_000):
             continue
         embedded = BeautifulSoup(raw, "html.parser")
+        source_style_count = len(embedded.select("style"))
+        source_script_count = len(embedded.select("script"))
+        source_inline_styles = len(embedded.select("[style]"))
         for unwanted in embedded.select("script, style, template, noscript, svg"):
             unwanted.decompose()
         body = embedded.body or embedded
@@ -46,6 +49,7 @@ def capture(html, url, output_dir):
             section_text = re.sub(r"\s+", " ", section.get_text(" ", strip=True)).strip()
             sections.append({
                 "id": str(section.get("id", ""))[:120],
+                "classes": [str(c)[:100] for c in section.get("class", [])[:12]],
                 "headings": [{"level": h.name, "text": re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip()}
                              for h in section.select("h1,h2,h3,h4")[:30]],
                 "text": section_text[:20_000],
@@ -69,6 +73,13 @@ def capture(html, url, output_dir):
                 "width": str(picture.get("width", ""))[:30],
                 "height": str(picture.get("height", ""))[:30],
             })
+        presenter_cards = [
+            {"headings": [re.sub(r"\s+", " ", h.get_text(" ", strip=True)).strip()
+                          for h in a.select("h1,h2,h3,h4")[:5]],
+             "text": re.sub(r"\s+", " ", a.get_text(" ", strip=True)).strip()[:4000],
+             "classes": [str(c)[:100] for c in a.get("class", [])[:12]]}
+            for a in body.select("article")[:40]
+        ]
         times = [re.sub(r"\s+", " ", v.get_text(" ", strip=True)).strip()
                  for v in body.select("time")[:100]]
         counts = {
@@ -79,8 +90,9 @@ def capture(html, url, output_dir):
             "faqs": len(body.select("details > summary")),
             "time_elements": len(body.select("time")),
             "presenter_articles": len(body.select("article")),
-            "style_blocks": len(embedded.select("style")),
-            "scripts": len(embedded.select("script")),
+            "style_blocks": source_style_count,
+            "scripts": source_script_count,
+            "inline_style_attributes": source_inline_styles,
         }
         structural_complete = (counts["headings"] <= 70
                                and counts["sections"] <= 80
@@ -88,12 +100,14 @@ def capture(html, url, output_dir):
                                and counts["images"] <= 80
                                and counts["faqs"] <= 60
                                and counts["time_elements"] <= 100
+                               and counts["presenter_articles"] <= 40
                                and len(text) <= 40_000
                                and all(not s["text_truncated"] for s in sections))
         items.append({
             "source": "Google Sites HTML data-code custom embed",
             "sections": sections,
             "faqs": faqs,
+            "presenter_cards": presenter_cards,
             "images": images,
             "times": times,
             "source_structure_counts": counts,
