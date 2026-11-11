@@ -1,5 +1,25 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — Google Sites embedded content supplemental recovery (V2 only)
+
+### Confirmed diagnosis
+- Real event landing page `https://sites.google.com/view/careformeglenmoreparkwebinar` failed the full audit at STEP 2–3 in GitHub Actions Run #33, before any new Google SERP requests; content completeness had verdict `NEEDS REVIEW - DO NOT USE FOR AI YET`.
+- Native SiteOne completed an HTTP 200 crawl but recorded no H1, extracted only 809 Markdown characters; its existing browser recovery yielded approximately 575 characters. GEO Optimizer's native text extraction was likewise sparse. These native results are preserved rather than rewritten.
+- The archived original target HTML contains an explicit Google Sites `data-code` custom HTML embed (roughly 647 KB), with a real embedded H1 and approximately 8K characters of candidate text. This is page-source evidence, **not proof that ordinary search crawlers can extract, index, or render that content**.
+
+### Implementation (no upstream source changes)
+- Added `scripts/embedded_page_evidence.py` to inspect up to five bounded Google Sites custom embeds, extract separately sourced H1/headings, candidate textual content, supported links and source hashes, with an explicit non-native-content warning. It is not used for other hosts.
+- In `scripts/business_identification.py`, attempt this supplemental capture only for `sites.google.com` when the ordinary HTML has no H1 or unusually little visible text. Preserve raw `target_source.html` and SiteOne browser output, and pass separately labelled embed content to business identification.
+- In `scripts/crawl_completeness_audit.py`, when a valid HTTP-200, non-blocked Google Sites page has sufficiently substantive embedded candidate HTML with a real H1, permit further analysis with the explicit verdict `CONTENT CAPTURED - GOOGLE SITES EMBED; NATIVE SEO DATA INCOMPLETE`. Keep the original native H1, crawl status, and source caveat unchanged.
+- In `scripts/fusion_report.py`, make the saved `target_embedded_evidence.json` available to the final model separately from original SEO/GEO scanner findings. No changes to third-party SiteOne Crawler or GEO Optimizer, STEP 5 request model/transport, competitive sampling rules, or external search APIs.
+- Added `tests/test_embedded_page_evidence.py` and wired it into `ci-structure.yml`. Offline Structure Integration Tests **#62: Success, 60 tests passed**. No paid tests were triggered for this patch.
+
+### Risks / next acceptance
+- These tests confirm the intended parser/guard behavior on local synthetic fixtures, but do not constitute a new end-to-end test on Google Sites. Check the next audit's captured text, title, event details, H1, and publisher-embedded evidence against the displayed page before trusting its final SEO/GEO conclusions.
+- This is a controlled, conditional supplementary extraction stage; it does not prove website-wide completeness or search-engine indexing. Missing or blocked native captures remain visible in the report.
+- The user-facing workflow remains only URL + scope. `main` remains unchanged until V2's new behavior is accepted.
+- Other named Google Sites layouts, nested runtime-injected frames, or embedded scripts may need separate handling; do not broaden this recovery without evidence.
+
 ## 2026-11-11 — Release candidate promotion from V2 to main
 
 ### Release decision and evidence
