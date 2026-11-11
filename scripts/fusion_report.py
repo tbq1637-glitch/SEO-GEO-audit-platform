@@ -1,5 +1,5 @@
 import json, os, hashlib, html
-from fusion_api import call_fusion
+from fusion_api import call_fusion_background
 from pathlib import Path
 from openai import OpenAI
 
@@ -310,14 +310,12 @@ def main():
                     "and practical testing steps; do not replace concrete actions "
                     "with generic advice merely because the competitor comparison is long. "
                 )
-        report = call_fusion(
-            client=OpenAI(timeout=300, max_retries=0),
+        report = call_fusion_background(
+            client=OpenAI(timeout=60, max_retries=0),
             model=os.getenv("FUSION_MODEL", "gpt-6.1-sol"),
             system_prompt=system_prompt, serialized=serialized,
             evidence=evidence,
             diagnostics_file=ROOT / "step5_fusion_diagnostics.json",
-            timeout_seconds=int(os.getenv("FUSION_TIMEOUT_SECONDS", "300")),
-            max_attempts=int(os.getenv("FUSION_MAX_ATTEMPTS", "2")),
         )
         cached_file.write_text(json.dumps({"digest": digest, "report": report},
                                           ensure_ascii=False), encoding="utf-8")
