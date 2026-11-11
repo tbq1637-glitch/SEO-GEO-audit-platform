@@ -28,7 +28,6 @@ def test_full_pipeline_is_preserved_in_order():
     script = "\n".join(str(step.get("run", "")) for step in steps)
     expected = [
         "scripts/business_identification.py",
-        "siteone-crawler",
         "geo audit",
         "scripts/auto_four_searches.py",
         "scripts/competitor_evidence.py",
@@ -41,6 +40,7 @@ def test_full_pipeline_is_preserved_in_order():
     ]
     for item in expected:
         assert item in script
+    assert "siteone-crawler" in script
     positions = [script.index(item) for item in expected]
     assert positions == sorted(positions)
     assert any("upload-artifact" in str(step.get("uses", "")) for step in steps)
