@@ -169,6 +169,7 @@ def extract_page(url):
                     for section in item["sections"][:30]
                 ],
                 "faqs": item["faqs"][:30],
+                "presenter_cards": item["presenter_cards"][:25],
                 "schedule_times": item["times"][:40],
                 "image_metadata": item["images"][:20],
                 "structure_counts": item["source_structure_counts"],
