@@ -1,5 +1,25 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — V3 STEP 5 background transport isolation (development)
+
+### Confirmed comparison
+- V2 Run #28 succeeded end-to-end on the historical Run #23 commit (39354e1), including the STEP 5 integrated report. V3 Run #27 failed twice after about 269 seconds with APIConnectionError, despite valid archived inputs.
+- This establishes a reproducible version-level difference, but does not yet prove that request size, a fixed network idle limit, or any specific upstream component caused the disconnect.
+- Preserve the existing V3 evidence collection, model, high reasoning effort, report instructions and SiteOne JSON compaction unchanged during this isolated transport experiment. No content extraction or scoring changes were made.
+
+### Changed
+- Added `call_fusion_background` in `scripts/fusion_api.py`: one short-lived OpenAI Responses background creation request and polling of the same response ID, rather than keeping a single synchronous HTTP request open for the entire high-reasoning task.
+- Save the response ID and status in `step5_fusion_diagnostics.json`. Polling connection errors retry only retrieval of the same response; uncertain creation errors never trigger a second paid submission automatically.
+- Require completed, nonempty output before publishing. Preserve the existing synchronous `call_fusion` implementation for comparison.
+- Route V3 STEP 5 through the new transport in `scripts/fusion_report.py`; leave STEP 1–4, all evidence content, the model, reasoning effort, and prompts unchanged.
+- Added mocked offline tests for successful polling, intermittent poll disconnect, uncertain creation, incomplete response and polling deadline. Enabled V3 branch in the offline CI workflow.
+
+### Validation and limits
+- Offline CI and a live V3 STEP 5 replay are pending; do not claim this change has repaired the real API failure.
+- No SerpApi or OpenAI request was initiated for this code change. The old working V2 branch and `main` remain unchanged.
+- `mode` and `source_run_id` are temporary testing controls and must be removed after experimental acceptance; the production workflow should return to URL + scope.
+- Background processing retains response data for retrieval; verify organizational data retention policy before using it on private customer data. This audit is limited to public-page evidence.
+
 This file is the canonical record of functional changes. Entries distinguish implementation from validation.
 
 ## 2026-11-10 — STEP 5 Only recovery for failed Run #26 (V2 development)
