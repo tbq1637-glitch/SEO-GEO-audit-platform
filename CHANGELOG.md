@@ -1,5 +1,25 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-11 — V3 full-run acceptance and temporary dispatch cleanup
+
+### Acceptance evidence
+- Full public-page audit Run #30 completed STEP 1–5 on `v3-step5-comparison`: five query groups, 15/15 successful query-page placements (14 unique URLs), SiteOne browser recovery, bounded video metadata, visual evidence, and a completed high-reasoning STEP 5 with an HTML report.
+- STEP 5 ran one background create request and 17 retrieval polls, with zero recorded poll connection errors; actual usage was 114030 input tokens and 12969 output tokens. This validates the tested public-page path, not all possible website or transcript cases.
+- Compared Run #30 to V2 Run #28: the new report includes per-query/cross-query comparisons, video provenance, 11 implementation backlog items, and clear launch approval checks. Source limitations remain explicitly disclosed. Length alone is not treated as evidence of quality.
+- Original SiteOne JSON remains complete in the artifact; model-facing SiteOne native tables remain selected/compacted as in the successfully tested V3. This compaction has NOT received an independent necessity or exhaustive-losslessness demonstration. No further compaction or extraction changes are made in this cleanup.
+- Run #30 recorded no attempted publisher transcript downloads; real-world caption retrieval is still unverified.
+
+### Workflow cleanup
+- Removed temporary `mode` and `source_run_id` dispatch controls and the `step5_only` GitHub Actions job. The public full audit has only required URL and scope inputs again.
+- Restored unconditional full audit job while preserving its existing STEP 1–5 steps, background STEP 5 transport, Google research cache and report artifact upload.
+- Updated offline workflow contract tests to cover the restored public input contract and five-step execution order, without calling SerpApi/OpenAI.
+- Offline Structure Integration Tests #54: Success (56 tests passed). Earlier #52/#53 failed on obsolete/over-broad workflow test assertions during this cleanup; no paid calls were made.
+
+### Remaining limitations
+- Do not claim a new paid end-to-end run after dispatch cleanup; the same STEP 1–5 commands remain, but the cleaned entry point was verified offline only.
+- Keep `main` untouched until explicit release acceptance. Do not delete branch history before safe integration; legacy diagnostic source files are not public workflow entrypoints.
+- SiteOne Facebook export path proliferation and real-world text-track acquisition remain separate investigations; they did not prevent Run #30 completion.
+
 ## 2026-11-11 — V3 STEP 5 background transport isolation (development)
 
 ### Confirmed comparison
