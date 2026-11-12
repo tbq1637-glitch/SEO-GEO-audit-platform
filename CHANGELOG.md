@@ -1,5 +1,29 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-13 — Generic inline-embed recovery (V2 development only)
+
+### Root cause and scope
+- Previously, the supplemental capture function returned immediately for every hostname except `sites.google.com`, while STEP 1 only invoked it for sparse Google Sites pages. Other landing pages with the same embedded HTML source pattern could therefore be missed even when their publisher HTML contained usable content.
+- This is a limited generalization of the already validated Google Sites mechanism, **not** a new external iframe crawler and not a change to native SEO/GEO scanner behavior. Avoid platform-specific rules when the same source structure can be identified generically.
+
+### Changed
+- `scripts/embedded_page_evidence.py`: detect literal HTML supplied in `data-code` or `iframe srcdoc` on any public HTTPS page, subject to existing size, real H1, minimum-content and no-truncation checks. Reject non-markup attribute values. Save exact source method, hosting domain, structural evidence and explicit note that external iframe URLs were not fetched.
+- `scripts/business_identification.py`: invoke the same supplemental parser **only when ordinary source HTML has no H1 or fewer than 400 extracted text characters**, independent of hosting provider. Normal pages with complete native content keep their existing acquisition path.
+- `scripts/crawl_completeness_audit.py`: use the host-neutral `CONTENT CAPTURED - INLINE EMBED; NATIVE SEO DATA INCOMPLETE` status. Native SiteOne/GEO crawl fields remain intact; the supplementary content is separately attributed.
+- `tests/test_embedded_page_evidence.py`: updated old Google Sites-only expectations and added cross-domain source, inline srcdoc, arbitrary non-HTML data, STEP 1 conditional triggering and complete-native-page non-triggering tests.
+
+### Verification
+- GitHub **Offline Structure Integration Tests #74: Success, 65 passed** and **#75: Success, 67 passed**, using mocked/local data without SerpApi or OpenAI calls.
+- Earlier incremental CI runs #70–#73 failed because existing tests still asserted the old Google Sites-only restriction; they were updated and all 67 tests passed in the final run. Do not hide these earlier failed intermediary checks.
+- No live multi-platform end-to-end audit has been performed after this change, so general cross-site reliability remains to be tested. Preserve Run #34 as prior verified Google Sites evidence and do not assume that new embedded layouts are equivalent.
+
+### Deliberate boundaries
+- **Do not** fetch or automatically follow external iframe `src` URLs, which may point to a different domain, login-gated resource or irrelevant content. These remain unverified/unknown until a separate scoped and safe retrieval design is approved.
+- No iframe runtime interaction, JavaScript shadow DOM traversal, third-party script execution, media decoding, or universal pixel-exact layout reconstruction is introduced.
+- Upstream SiteOne Crawler, GEO Optimizer, SERP collection, and STEP 5 model/transport/prompt remain unchanged.
+- Changes are isolated to `v2-search-competitiveness`; `main` remains at prior accepted baseline. Revert anchor before this patch: `2144193124934cb2ba044f4466eae0a711f7208f`.
+- Next: test a genuinely different public landing page, confirm native versus supplemental evidence provenance and final report content, then consider whether external frames need explicit support.
+
 ## 2026-11-11 — Source-first semantic capture verification (V2 only)
 
 ### Scope
