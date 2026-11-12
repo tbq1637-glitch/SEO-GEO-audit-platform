@@ -1,8 +1,7 @@
-"""Extract publisher-embedded Google Sites HTML without changing upstream scanners.
+"""Recover inline embedded HTML (data-code / iframe srcdoc) on any public page.
 
-A Google Sites data-code attribute can contain an entire custom HTML widget while
-the ordinary page body and SiteOne/GEO outputs expose only its wrapper.
-Never report this as native crawler-visible content; preserve source provenance.
+Only decode markup already present in the archived source; never fetch external
+iframe URLs. Keep native SiteOne/GEO results unchanged and label provenance.
 """
 import hashlib
 import json
@@ -15,13 +14,21 @@ from bs4 import BeautifulSoup
 
 def capture(html, url, output_dir):
     host = (urlsplit(url).hostname or "").lower()
-    if host != "sites.google.com":
-        return None
     soup = BeautifulSoup(html, "html.parser")
-    candidates = soup.select("[data-code]")
+    # Attributes are literal publisher HTML in the current page source.
+    # External iframe src URLs are NOT downloaded or counted as captured.
+    candidates = [(node, "data-code", "inline_attribute")
+                  for node in soup.select("[data-code]")]
+    candidates += [(node, "srcdoc", "iframe_srcdoc")
+                   for node in soup.select("iframe[srcdoc]")]
     items = []
-    for node in candidates[:5]:
-        raw = node.get("data-code") or ""
+    for node, attribute, kind in candidates[:5]:
+        raw = node.get(attribute) or ""
+        if not isinstance(raw, str) or not (100 <= len(raw) <= 900_000):
+            continue
+        # Do not interpret arbitrary attribute values as an HTML document.
+        if not re.search(r"<(?:html|body|main|section|article|h[1-6]|p|div)\\b", raw, re.I):
+            continue
         if not isinstance(raw, str) or not (100 <= len(raw) <= 900_000):
             continue
         embedded = BeautifulSoup(raw, "html.parser")
@@ -104,7 +111,9 @@ def capture(html, url, output_dir):
                                and len(text) <= 40_000
                                and all(not s["text_truncated"] for s in sections))
         items.append({
-            "source": "Google Sites HTML data-code custom embed",
+            "source": "Publisher inline embedded HTML",
+            "embed_kind": kind,
+            "embed_attribute": attribute,
             "sections": sections,
             "faqs": faqs,
             "presenter_cards": presenter_cards,
@@ -138,8 +147,10 @@ def capture(html, url, output_dir):
         return None
     result = {
         "source_url": url,
-        "source_method": "google_sites_custom_html_attribute",
+        "source_method": "publisher_inline_embedded_html",
         "http_wrapper_is_not_embedded_body": True,
+        "source_host": host,
+        "external_iframes_not_fetched": True,
         "full_page_completeness_not_proven": True,
         "items": valid,
         "total_candidate_text_characters": sum(x["candidate_text_characters"] for x in valid),
