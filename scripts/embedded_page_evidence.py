@@ -27,7 +27,7 @@ def capture(html, url, output_dir):
         if not isinstance(raw, str) or not (100 <= len(raw) <= 900_000):
             continue
         # Do not interpret arbitrary attribute values as an HTML document.
-        if not re.search(r"<(?:html|body|main|section|article|h[1-6]|p|div)\\b", raw, re.I):
+        if not re.search(r"<(?:html|body|main|section|article|h[1-6]|p|div)\b", raw, re.I):
             continue
         if not isinstance(raw, str) or not (100 <= len(raw) <= 900_000):
             continue
