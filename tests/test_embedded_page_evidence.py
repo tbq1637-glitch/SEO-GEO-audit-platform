@@ -128,3 +128,41 @@ def test_arbitrary_data_code_not_treated_as_html(tmp_path):
 def test_no_double_count_of_inherited_parent_source(tmp_path):
     page = '<html><body><h1>Native page</h1><p>' + ('Complete details ' * 30) + '</p></body></html>'
     assert emb.capture(page, "https://events.example.org/current", tmp_path) is None
+
+
+def test_step1_recovers_other_host_only_if_outer_html_sparse(tmp_path, monkeypatch):
+    import business_identification as biz
+    monkeypatch.chdir(tmp_path)
+    inner = ("<html><body><h1>External platform event</h1><p>" +
+             ("Verified visible inline content. " * 25) + "</p></body></html>")
+    content = '<html><head><title>Demo</title></head><body><div data-code="' + escape(inner, quote=True) + '"></div></body></html>'
+    class Response:
+        url = "https://events.example.org/special"
+        text = content
+        headers = {"Content-Type": "text/html"}
+        def raise_for_status(self):
+            pass
+    monkeypatch.setattr(biz.requests, "get", lambda *args, **kwargs: Response())
+    result = biz.extract_page(Response.url)
+    assert result["embedded_page_evidence"]["items"][0]["h1"] == "External platform event"
+    assert (tmp_path / "reports" / "target_embedded_evidence.json").exists()
+    assert result["embedded_page_evidence"]["native_scanner_results_unchanged"]
+
+
+def test_step1_keeps_complete_native_page_without_extra_embedded_source(tmp_path, monkeypatch):
+    import business_identification as biz
+    monkeypatch.chdir(tmp_path)
+    inner = "<html><body><h1>Hidden content</h1><p>" + ("Not for primary extraction. " * 20) + "</p></body></html>"
+    page = ('<html><body><main><h1>Actual native page</h1><p>' +
+            ('Normal public content. ' * 45) +
+            '</p></main><div data-code="' + escape(inner, quote=True) + '"></div></body></html>')
+    class Response:
+        url = "https://events.example.org/complete"
+        text = page
+        headers = {"Content-Type": "text/html"}
+        def raise_for_status(self):
+            pass
+    monkeypatch.setattr(biz.requests, "get", lambda *args, **kwargs: Response())
+    result = biz.extract_page(Response.url)
+    assert result["embedded_page_evidence"] is None
+    assert not (tmp_path / "reports" / "target_embedded_evidence.json").exists()
