@@ -124,7 +124,7 @@ def main():
     if status != "200" or blocked:
         verdict = "INCOMPLETE - DO NOT USE FOR AI"
     elif embedded_valid and (not text or len(text) < 400 or not title or not h1):
-        verdict = "CONTENT CAPTURED - GOOGLE SITES EMBED; NATIVE SEO DATA INCOMPLETE"
+        verdict = "CONTENT CAPTURED - INLINE EMBED; NATIVE SEO DATA INCOMPLETE"
     elif browser_fallback_valid and (not text or len(text) < 400 or not title or not h1):
         verdict = "CONTENT CAPTURED - BROWSER FALLBACK; STATIC SEO DATA INCOMPLETE"
     elif not text:
