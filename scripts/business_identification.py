@@ -60,16 +60,15 @@ def extract_page(url):
         r.text[:1_000_000], encoding="utf-8"
     )
 
-    # Only probe a Google Sites custom embed if ordinary HTML is visibly sparse.
-    # SiteOne/GEO remain unchanged and can still report native crawl limitations.
+    # Recover publisher-supplied inline HTML only when the ordinary page
+    # looks incomplete. Never fetch external frames or override native scanners.
     from embedded_page_evidence import capture as capture_embedded
     embedded = None
-    if (urlparse(r.url).hostname or "").lower() == "sites.google.com":
-        outer = BeautifulSoup(r.text[:1_000_000], "html.parser")
-        native_h1 = outer.select_one("h1")
-        native_text = norm((outer.select_one("main") or outer.body or outer).get_text(" ", strip=True))
-        if native_h1 is None or len(native_text) < 400:
-            embedded = capture_embedded(r.text[:1_000_000], r.url, evidence_dir)
+    outer = BeautifulSoup(r.text[:1_000_000], "html.parser")
+    native_h1 = outer.select_one("h1")
+    native_text = norm((outer.select_one("main") or outer.body or outer).get_text(" ", strip=True))
+    if native_h1 is None or len(native_text) < 400:
+        embedded = capture_embedded(r.text[:1_000_000], r.url, evidence_dir)
 
     # SiteOne browser fallback only for evidence that looks client-rendered.
     # Use the rendered Markdown as an additional source, never silently replace HTML.
