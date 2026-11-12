@@ -24,7 +24,7 @@ def wrapper(host="sites.google.com", hidden=True):
 
 def test_google_sites_embedded_html_is_labelled_and_available(tmp_path):
     evidence = emb.capture(wrapper(), "https://sites.google.com/view/webinar", tmp_path)
-    assert evidence["source_method"] == "google_sites_custom_html_attribute"
+    assert evidence["source_method"] == "publisher_inline_embedded_html"
     assert evidence["native_scanner_results_unchanged"] is True
     item = evidence["items"][0]
     assert item["h1"] == "Care for Me Webinar"
@@ -34,9 +34,10 @@ def test_google_sites_embedded_html_is_labelled_and_available(tmp_path):
     assert "not proof" in item["limitations"]
 
 
-def test_other_sites_never_use_this_recovery(tmp_path):
-    assert emb.capture(wrapper(), "https://other.example.org/webinar", tmp_path) is None
-    assert not (tmp_path / "target_embedded_evidence.json").exists()
+def test_other_host_with_same_real_embedded_html_is_supported(tmp_path):
+    result = emb.capture(wrapper(), "https://other.example.org/webinar", tmp_path)
+    assert result is not None
+    assert result["items"][0]["h1"] == "Care for Me Webinar"
 
 
 def test_missing_or_short_embeds_are_not_promoted(tmp_path):
@@ -60,7 +61,7 @@ def test_completeness_accepts_only_separately_labelled_embedded_source(tmp_path,
     verdict = json.loads((tmp_path / "crawl_completeness.json").read_text())
     assert verdict["embedded_source_valid"] is True
     assert verdict["embedded_is_not_native_crawler_content"] is True
-    assert "GOOGLE SITES EMBED" in verdict["verdict"]
+    assert "INLINE EMBED" in verdict["verdict"]
     assert verdict["h1"] == ""
     search.validate_evidence({"brand": "Demo", "page_type": "landing_page", "source_url": crawl.URL}, verdict)
 
@@ -105,3 +106,25 @@ def test_truncated_or_overlimit_page_must_not_claim_complete(tmp_path):
     result = emb.capture(page, "https://sites.google.com/view/overlong", tmp_path)
     assert result is None
     assert not (tmp_path / "target_embedded_evidence.json").exists()
+
+
+def test_srcdoc_embedded_html_without_following_external_iframe(tmp_path):
+    internal = "<html><body><h1>Independent webinar</h1><p>" + ("Event details and timetable. " * 28) + "</p></body></html>"
+    page = ('<html><body><iframe srcdoc="' + escape(internal, quote=True) +
+            '"></iframe><iframe src="https://other-site.example/private"></iframe></body></html>')
+    result = emb.capture(page, "https://events.example.org/current", tmp_path)
+    assert result is not None
+    assert result["items"][0]["embed_kind"] == "iframe_srcdoc"
+    assert result["external_iframes_not_fetched"] is True
+    assert "other-site.example" not in str(result)
+
+
+def test_arbitrary_data_code_not_treated_as_html(tmp_path):
+    value = "just a plain analytics blob; " * 35
+    page = '<html><body><div data-code="' + value + '"></div></body></html>'
+    assert emb.capture(page, "https://events.example.org/current", tmp_path) is None
+
+
+def test_no_double_count_of_inherited_parent_source(tmp_path):
+    page = '<html><body><h1>Native page</h1><p>' + ('Complete details ' * 30) + '</p></body></html>'
+    assert emb.capture(page, "https://events.example.org/current", tmp_path) is None
