@@ -1,5 +1,13 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-24 — Run-scoped OpenAI token budget (V2 only)
+
+- Landing page: 250,000 tokens; website: 500,000 tokens per audit.
+- Route the existing five AI workflow entry points through a loopback-only budget gateway, including SiteOne's supported endpoint override. Preserve prompts, models, search logic, and existing API secret name.
+- Reserve estimated input plus bounded output before sending each creation request. Unknown outcomes keep reservations; background polling reconciles the same response once. Block subsequent requests when admission fails, and retain available artifacts.
+- Summary and JSON ledger distinguish provider-reported input/output/total usage from uncertain reservations. Estimate uses tokenizer, margin and image allowance; it is not a provider-enforced absolute billing cap. Actual provider usage may differ. No daily limit or account selector.
+- Added offline budget tests; live provider and SiteOne compatibility still require a controlled audit. No paid audit intentionally triggered by this change. Main unchanged.
+
 ## 2026-11-13 — Generic inline-embed recovery (V2 development only)
 
 ### Root cause and scope
