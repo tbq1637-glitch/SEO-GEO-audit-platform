@@ -119,7 +119,7 @@ def main():
         "pages": [
             {key: row.get(key) for key in
              ("query_id", "query", "position", "title", "snippet", "url",
-              "domain", "status", "reason", "reused", "markdown_file",
+              "domain", "status", "reason", "first_query_id", "final_url", "markdown_file",
               "capture_stem", "extracted_characters")}
             for row in competitors.get("pages", [])
         ],
@@ -271,6 +271,8 @@ def main():
                     "Use all five actual search queries and the query-specific captured competitors. "
                     "Give per-query comparisons and cross-query competitor patterns; "
                     "explicitly report coverage shortfalls and deduplicated URLs. "
+                    "Target-site and duplicate rows are search-rank evidence only, not independent competitors. "
+                    "Video-platform titles/snippets indicate search-result format and topics only; do not infer webpage layout, content quality or watched video from metadata. Publisher text tracks may support topical comparisons only. "
                     "Do not treat sampled source passages as full-page evidence. "
                     "Video SERP rows, publisher metadata and verified public "
                     "transcripts are different evidence types. Never claim you "

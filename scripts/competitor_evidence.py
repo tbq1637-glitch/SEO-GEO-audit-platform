@@ -9,7 +9,7 @@ import re
 import socket
 import subprocess
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import requests
 from bs4 import BeautifulSoup
@@ -64,10 +64,66 @@ def public_dns(url):
         return False
 
 
-def fetch_html(url):
+def site_host(url):
+    try:
+        host = (urlsplit(url).hostname or "").lower().rstrip(".")
+        return host[4:] if host.startswith("www.") else host
+    except ValueError:
+        return ""
+
+
+def page_key(url):
+    """Audit-wide page identity; retain content-bearing query parameters."""
+    try:
+        p = urlsplit(url)
+        host = site_host(url)
+        if not host:
+            return ""
+        port = p.port
+        if port and port not in (80, 443):
+            host += ":" + str(port)
+        tracking = {"gclid", "fbclid", "msclkid", "dclid", "gbraid", "wbraid", "_ga", "mc_cid", "mc_eid"}
+        params = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
+                  if not k.lower().startswith("utm_") and k.lower() not in tracking]
+        return urlunsplit(("https", host, p.path.rstrip("/") or "/", urlencode(sorted(params)), ""))
+    except (ValueError, TypeError):
+        return ""
+
+
+def own_site(url, targets):
+    """Exclude the target host, www alias, its subdomains and parent host.
+
+    On shared Google Sites, isolate the named site path (other Google URLs
+    remain governed by the existing eligibility policy).
+    """
+    host = site_host(url)
+    if not host:
+        return False
+    for target in targets:
+        base = site_host(target)
+        if not base:
+            continue
+        if base == "sites.google.com" and host == base:
+            path = urlsplit(target).path.strip("/").split("/")
+            candidate = urlsplit(url).path.strip("/").split("/")
+            if len(path) >= 2 and path[0] in ("view", "site"):
+                if candidate[:2] == path[:2]:
+                    return True
+                continue
+        if host == base or host.endswith("." + base) or base.endswith("." + host):
+            return True
+    return False
+
+
+def fetch_html(url, redirect_guard=None):
     """No automatic redirects, to avoid fetching an unvalidated target."""
     current = url
     for redirects in range(4):
+        if redirects and redirect_guard:
+            blocked = redirect_guard(current)
+            if blocked:
+                return None, {"status": blocked, "final_url": current,
+                              "reason": "Redirect destination already attempted or belongs to target"}
         valid, reason = eligible(current)
         if not valid or not public_dns(current):
             return None, {"status": "unsafe_url", "reason": reason or "DNS is not public"}
@@ -145,11 +201,17 @@ def main():
     groups = data.get("groups", [])
     if len(groups) != MAX_QUERIES or any(g.get("error") for g in groups):
         raise RuntimeError("Five completed Google query groups required")
-    target_host = (urlsplit(data.get("target_url", "")).hostname or "").lower()
+    import os
+    targets = [data.get("target_url", ""), os.getenv("AUDIT_URL", "")]
+    profile_file = OUT / "business_profile.json"
+    if profile_file.is_file():
+        profile = json.loads(profile_file.read_text(encoding="utf-8"))
+        targets.extend(profile.get(key, "") for key in ("source_url", "final_url"))
+    targets = [url for url in targets if isinstance(url, str) and url]
     records, per_query = [], []
-    # URL cache includes both successful and failed attempts to avoid
-    # repeatedly downloading the same content across search intents.
-    fetched = {}
+    # Every attempted identity (including redirect destinations and failures)
+    # belongs to its first query only. Duplicates never fill another quota.
+    claimed = {}
     attempts = 0
     successes = 0
 
@@ -157,10 +219,10 @@ def main():
         query_id = group.get("id") or f"Q{group_index}"
         query = group.get("query", "")
         group_successes = group_attempts = 0
-        seen_urls_in_query = set()
-        for result in group.get("results", [])[:MAX_ATTEMPTS_PER_QUERY]:
+        for result in group.get("results", []):
             url = str(result.get("url", ""))
-            host = (urlsplit(url).hostname or "").lower()
+            host = site_host(url)
+            identity = page_key(url)
             row = {
                 "query_id": query_id, "query": query,
                 "position": result.get("position"),
@@ -171,42 +233,57 @@ def main():
                 "source": "SerpApi Google organic snapshot",
             }
             valid, reason = eligible(url)
-            if group_successes >= MAX_PER_QUERY:
-                row["reason"] = "Per-query three-success target reached"
+            if own_site(url, targets):
+                row.update(status="target_site", reason="Target website; ranking evidence only")
             elif not valid:
                 row.update(status="unresolved_url", reason=reason)
-            elif host == target_host:
-                row["status"] = "target_site"
             elif is_video_platform_url(url):
                 row.update(status="video_reference",
                            reason="Video platform SERP result: metadata evidence only; not counted as HTML content")
-            elif url in seen_urls_in_query:
-                row["status"] = "duplicate_url_in_query"
+            elif identity in claimed:
+                row.update(status="duplicate_url_global",
+                           reason="Page already attempted in this audit; ranking evidence only",
+                           first_query_id=claimed[identity]["query_id"])
+            elif group_successes >= MAX_PER_QUERY:
+                row["reason"] = "Per-query three-success target reached"
+            elif group_attempts >= MAX_ATTEMPTS_PER_QUERY:
+                row["reason"] = "Per-query request attempt limit reached"
             else:
-                # Exact same URL is deduplicated, but distinct pages on the same
-                # host remain eligible: domain equality is NOT content equality.
-                seen_urls_in_query.add(url)
-                cached = fetched.get(url)
-                if cached is not None:
-                    row.update({
-                        k: value for k, value in cached.items()
-                        if k not in ("query_id", "query", "position", "title",
-                                     "snippet", "url", "domain", "source")
-                    })
-                    row["reused"] = True
-                    row["reuse_source_url"] = url
-                    # No repeated large excerpt: the source markdown filename
-                    # provides the full retained text.
-                    row.pop("excerpt", None)
-                    if row.get("status") == "captured":
-                        group_successes += 1
-                elif group_attempts >= MAX_ATTEMPTS_PER_QUERY:
-                    row["reason"] = "Per-query request attempt limit reached"
-                else:
                     group_attempts += 1
                     attempts += 1
-                    html, info = fetch_html(url)
+                    owner = {"query_id": query_id, "attempt": attempts}
+                    claimed[identity] = owner
+
+                    def guard(destination):
+                        if own_site(destination, targets):
+                            return "target_site_redirect"
+                        key = page_key(destination)
+                        if key in claimed:
+                            return "duplicate_url_global"
+                        if is_video_platform_url(destination):
+                            return "video_reference"
+                        if key:
+                            claimed[key] = owner
+                        return None
+
+                    html, info = fetch_html(url, redirect_guard=guard)
                     row.update(info)
+                    final_url = info.get("final_url") or url
+                    final_key = page_key(final_url)
+                    # Defensive final check for mocked/alternate transports.
+                    if html is not None and own_site(final_url, targets):
+                        row.update(status="target_site_redirect",
+                                   reason="Target website after redirect")
+                        html = None
+                    elif html is not None and is_video_platform_url(final_url):
+                        row.update(status="video_reference", reason="Video platform after redirect")
+                        html = None
+                    elif html is not None and final_key in claimed and claimed[final_key] != owner:
+                        row.update(status="duplicate_url_global",
+                                   reason="Redirect resolves to previously attempted page")
+                        html = None
+                    if final_key and not own_site(final_url, targets):
+                        claimed.setdefault(final_key, owner)
                     if html is not None:
                         soup = BeautifulSoup(html, "html.parser")
                         for node in soup(["script", "style", "noscript"]):
@@ -237,8 +314,6 @@ def main():
                             else:
                                 row.update(status="conversion_failed",
                                            reason="No usable Markdown; see conversion log")
-                    # Cache failed outcomes as well to avoid repeats.
-                    fetched[url] = dict(row)
             records.append(row)
         per_query.append({
             "id": query_id, "query": query, "successes": group_successes,
@@ -263,6 +338,7 @@ def main():
         "openai_requests_by_this_step": 0,
         "ai_search_tested": False,
         "warning": "Google positions do not establish ranking causes; capture shortfalls are disclosed.",
+        "deduplication_policy": "Global page identity across all queries, including failed attempts and redirects; distinct pages on the same non-target host may be sampled.",
         "pages": records,
     }
     (OUT / "competitor_evidence.json").write_text(
@@ -270,7 +346,7 @@ def main():
         encoding="utf-8",
     )
     lines = ["# STEP 3 - Five-query Competitor Content Evidence", "",
-             "Query-specific samples. Same URL across different queries is reused.",
+             "Each captured page counts once across all five queries. Duplicates and the target site remain ranking evidence only.",
              "No additional paid API calls for direct HTTPS capture.", "",
              "| Query | Captured / target | New URL attempts | Coverage |",
              "|---|---:|---:|---|"]

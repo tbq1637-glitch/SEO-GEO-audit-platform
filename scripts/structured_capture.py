@@ -242,7 +242,8 @@ def reconcile_rendered_captures(manifest):
         )
     record["query_sample_count"] = sum(x.get("successes", 0)
                                        for x in record.get("per_query", []))
-    unique_urls = {row.get("url") for row in pages
+    from competitor_evidence import page_key
+    unique_urls = {page_key(row.get("final_url") or row["url"]) for row in pages
                    if row.get("status") == "captured" and row.get("url")}
     record["successful_pages"] = len(unique_urls)
     record["unique_captured_urls"] = len(unique_urls)

@@ -118,7 +118,7 @@ def test_video_platform_results_do_not_consume_html_capture_attempts(tmp_path, m
         "target_url": "https://target.example.org", "groups": groups
     }))
     called = []
-    def fake_get(url):
+    def fake_get(url, **kwargs):
         called.append(url)
         return "<html><body>" + "Page evidence " * 40 + "</body></html>", {
             "http_status": 200

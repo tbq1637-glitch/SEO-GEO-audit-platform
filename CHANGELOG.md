@@ -1,5 +1,14 @@
 # CHANGELOG — SEO + GEO Audit Platform
 
+## 2026-11-24 — Unique competitor page admission (V2 only)
+
+- Root cause: reused URLs were counted again per query, exact-host target filtering missed aliases and redirects, and skipped candidates consumed the first-ten-result window.
+- Exclude target site and known host aliases/subdomains before capture and during redirects. Preserve target ranking observations only. Global normalized URL identity reserves attempted URLs and redirect destinations even on failure. A duplicate cannot occupy another slot.
+- Scan all available organic candidates in rank order until three successful unique captures or the existing ten actual attempts per query. No additional SerpApi calls. A shortfall remains explicit when the snapshot is exhausted.
+- Keep standalone video platform results as metadata, not website quota. Existing publisher webpage and bounded text-track evidence remain; fusion distinguishes topic/search-format context from website comparison.
+- Different pages on the same non-target host remain eligible; no new domain-wide competitor exclusion. Unknown redirect/canonical aliases cannot be known before first discovery. Existing dynamic rendering and visual follow-up are retained as distinct acquisition phases, not additional competitor slots.
+- Login/challenge/irrelevant-page semantic checks deferred. No token budget, API keys, main branch or search request cap changes. Offline tests added; live acceptance remains separate.
+
 ## 2026-11-24 — Run-scoped OpenAI token budget (V2 only)
 
 - Landing page: 250,000 tokens; website: 500,000 tokens per audit.

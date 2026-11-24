@@ -93,7 +93,7 @@ def test_five_groups_three_successes_each_with_rank_fallback(tmp_path, monkeypat
         "target_url": "https://target.example.org", "groups": groups
     }))
     calls = []
-    def fetch(url):
+    def fetch(url, **kwargs):
         calls.append(url)
         # First rank blocked in every query, remaining three captures succeed.
         if "-site1." in url:
@@ -116,7 +116,7 @@ def test_five_groups_three_successes_each_with_rank_fallback(tmp_path, monkeypat
                for r in [result])
 
 
-def test_cross_query_exact_url_reused_without_extra_http(tmp_path, monkeypatch):
+def test_cross_query_exact_url_skipped_without_extra_http(tmp_path, monkeypatch):
     monkeypatch.setattr(collector, "OUT", tmp_path)
     common = "https://shared.example.org/research"
     groups = []
@@ -131,20 +131,20 @@ def test_cross_query_exact_url_reused_without_extra_http(tmp_path, monkeypatch):
     }))
     calls = []
     monkeypatch.setattr(collector, "fetch_html",
-                        lambda url: (calls.append(url) or
+                        lambda url, **kwargs: (calls.append(url) or
                                      "<html><body>" + "Text " * 100 + "</body></html>",
                                      {"http_status": 200}))
     monkeypatch.setattr(collector, "convert_html",
                         lambda html, i: ("Content " * 100, 0, "success.log"))
     collector.main()
     result = json.loads((tmp_path / "competitor_evidence.json").read_text())
-    assert result["query_sample_count"] == 15
+    assert result["query_sample_count"] == 11
     assert result["unique_captured_urls"] == 11
     assert calls.count(common) == 1
-    reused = [r for r in result["pages"] if r.get("reused")]
-    assert len(reused) == 4
-    assert all(r["status"] == "captured" and r.get("markdown_file") for r in reused)
-    assert not any("excerpt" in row for row in reused)
+    duplicates = [r for r in result["pages"] if r["status"] == "duplicate_url_global"]
+    assert len(duplicates) == 4
+    assert all(not r.get("markdown_file") and not r.get("capture_stem") for r in duplicates)
+    assert all(q["successes"] == 2 for q in result["per_query"][1:])
 
 
 def test_query_shortfall_is_truthful(tmp_path, monkeypatch):
@@ -156,7 +156,7 @@ def test_query_shortfall_is_truthful(tmp_path, monkeypatch):
         "target_url": "https://target.example.org", "groups": groups
     }))
     monkeypatch.setattr(collector, "fetch_html",
-                        lambda *_: (None, {"status": "access_blocked"}))
+                        lambda *_, **kwargs: (None, {"status": "access_blocked"}))
     collector.main()
     result = json.loads((tmp_path / "competitor_evidence.json").read_text())
     assert result["query_sample_count"] == 0
